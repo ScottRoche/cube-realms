@@ -1,6 +1,10 @@
 #ifndef _LOGGER_H_
 #define _LOGGER_H_
 
+/******************************************************************************
+ * @name  Verbosity
+ * @brief Valid log verbosity levels.
+******************************************************************************/
 enum Verbosity
 {
 	DEBUG   = 0x01,
@@ -29,9 +33,11 @@ void log_message(enum Verbosity verbosity,
                  const unsigned int line,
                  ...);
 
+
 /******************************************************************************
  * Easy to use macros to be used to log.
 ******************************************************************************/
+
 #define LOG_DEBUG(format, ...) \
 	log_message(DEBUG, 0, format, __FILE__, __LINE__, ##__VA_ARGS__);
 	

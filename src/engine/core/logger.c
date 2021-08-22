@@ -6,14 +6,20 @@
 #include <stdint.h>
 #include <stdarg.h>
 
-
 #define ARRAY_SIZE(arr) sizeof(arr) / sizeof(arr[0])
 
-static int get_verbosity_index(enum Verbosity verbosity,
-                                  int colour_count)
+/******************************************************************************
+ * @name   get_verbosity_index()
+ * @brief  Transforms a verbosity into a index for an array.
+ * @param  verbosity         The verbosity to query.
+ * @param  available_indexes The number of indexes to check.
+ * @return An integer specifying the index or -1 if the .
+******************************************************************************/
+static int get_verbosity_index(enum Verbosity verbosity, size_t max_index)
 {
-	uint8_t verbosity_index = (uint8_t)verbosity;	
-	for (int i = 0; i < colour_count - 1; i++)
+	uint8_t verbosity_index = (uint8_t)verbosity;
+
+	for (int i = 0; i < max_index; i++)
 	{
 		verbosity_index >>= 1;
 		if (verbosity_index == 0)
@@ -50,16 +56,16 @@ void log_message(enum Verbosity verbosity,
 	};
 
 	static const uint8_t log_verbosity_mask = 0xFF; /* Allows all verbosities to be logged to stdout */
-
-	const int colour_count = ARRAY_SIZE(verbosity_colours);
-	const int verbosity_index = get_verbosity_index(verbosity, colour_count);
+	
+	const int verbosity_index = 
+		get_verbosity_index(verbosity, ARRAY_SIZE(verbosity_colours) - 1);
 	char message[512];
 	va_list args;
 	int success = 0;
 
 	va_start(args, line);
 	
-	if (verbosity_index == colour_count || verbosity_index == -1)
+	if (verbosity_index == ARRAY_SIZE(verbosity_colours) || verbosity_index == -1)
 	{
 		printf("Somethings wrong\n");
 		return;
@@ -88,7 +94,7 @@ void log_message(enum Verbosity verbosity,
 			       line,
 			       verbosity_strings[verbosity_index],
 			       message,
-			       verbosity_colours[colour_count - 1]);
+			       verbosity_colours[ARRAY_SIZE(verbosity_colours) - 1]);
 		}
 		else
 		{
@@ -99,7 +105,7 @@ void log_message(enum Verbosity verbosity,
 			       verbosity_strings[verbosity_index],
 			       exit_code,
 			       message,
-			       verbosity_colours[colour_count - 1]);
+			       verbosity_colours[ARRAY_SIZE(verbosity_colours) - 1]);
 
 			exit(exit_code);
 		}
