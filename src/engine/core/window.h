@@ -1,7 +1,7 @@
 #ifndef _WINDOW_H_
 #define _WINDOW_H_
 
-#include <stdio.h>
+#include <GLFW/glfw3.h>
 
 /******************************************************************************
  * @name  _Window
@@ -10,7 +10,7 @@
 ******************************************************************************/
 struct _Window
 {
-
+	GLFWwindow *handle;
 };
 typedef struct _Window Window;
 
@@ -22,11 +22,19 @@ typedef struct _Window Window;
 Window *window_create();
 
 /******************************************************************************
- * @name      window_create()
+ * @name      window_destroy()
  * @brief     Destroys a Window by deinitialising and freeing it's memory.
  * @param[in] window A pointer to a window that will be destroyed.
  * @return    void
 ******************************************************************************/
-void window_destroy(const Window *window);
+void window_destroy(Window *restrict window);
+
+/******************************************************************************
+ * @name      window_update()
+ * @brief     Updates the specified window.
+ * @param[in] window A pointer to a window that will be updated.
+ * @return    void
+******************************************************************************/
+void window_update(Window *restrict window);
 
 #endif /* _WINDOW_H_ */

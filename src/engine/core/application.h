@@ -9,12 +9,7 @@
 ******************************************************************************/
 struct _Application
 {
-	/* An array of Window pointers */
-	Window **windows;
-	/* The size of the windows array */
-	size_t windows_size;
-	/* The number of pointers within the array */
-	size_t windows_count;
+	Window *window;
 };
 typedef struct _Application Application;
 
