@@ -7,11 +7,11 @@
 ******************************************************************************/
 enum Verbosity
 {
-	DEBUG   = 0x01,
-	INFO    = 0x02,
-	WARNING = 0x04,
-	ERROR   = 0x08,
-	FATAL   = 0x10
+	VERB_DEBUG   = 0x01,
+	VERB_INFO    = 0x02,
+	VERB_WARNING = 0x04,
+	VERB_ERROR   = 0x08,
+	VERB_FATAL   = 0x10
 };
 
 /******************************************************************************
@@ -39,19 +39,19 @@ void log_message(enum Verbosity verbosity,
 ******************************************************************************/
 
 #define LOG_DEBUG(format, ...) \
-	log_message(DEBUG, 0, format, __FILE__, __LINE__, ##__VA_ARGS__);
+	log_message(VERB_DEBUG, 0, format, __FILE__, __LINE__, ##__VA_ARGS__);
 	
 #define LOG_INFO(format, ...) \
-	log_message(INFO, 0, format, __FILE__, __LINE__, ##__VA_ARGS__);
+	log_message(VERB_INFO, 0, format, __FILE__, __LINE__, ##__VA_ARGS__);
 
 #define LOG_WARNING(format, ...) \
-	log_message(WARNING, 0, format, __FILE__, __LINE__, ##__VA_ARGS__);
+	log_message(VERB_WARNING, 0, format, __FILE__, __LINE__, ##__VA_ARGS__);
 
 #define LOG_ERROR(format, ...) \
-	log_message(ERROR, 0, format, __FILE__, __LINE__, ##__VA_ARGS__);
+	log_message(VERB_ERROR, 0, format, __FILE__, __LINE__, ##__VA_ARGS__);
 
 #define LOG_FATAL(error_code, format, ...) \
-	log_message(FATAL, error_code, format, __FILE__, __LINE__, ##__VA_ARGS__);
+	log_message(VERB_FATAL, error_code, format, __FILE__, __LINE__, ##__VA_ARGS__);
 
 
 #endif /* _LOGGER_H_ */

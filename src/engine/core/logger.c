@@ -59,15 +59,15 @@ void log_message(enum Verbosity verbosity,
 	
 	const int verbosity_index = 
 		get_verbosity_index(verbosity, ARRAY_SIZE(verbosity_colours) - 1);
-	char message[512];
+	char message[256];
+	char log_message[512];
 	va_list args;
 	int success = 0;
 
 	va_start(args, line);
 	
-	if (verbosity_index == ARRAY_SIZE(verbosity_colours) || verbosity_index == -1)
+	if (!(verbosity & log_verbosity_mask))
 	{
-		printf("Somethings wrong\n");
 		return;
 	}
 
@@ -84,31 +84,46 @@ void log_message(enum Verbosity verbosity,
 		return;
 	}
 
-	if (verbosity & log_verbosity_mask)
+	if (verbosity & VERB_FATAL)
 	{
-		if (verbosity & ~FATAL)
-		{
-			printf("%s%s(%d) %s: %s%s\n",
-			       verbosity_colours[verbosity_index],
-			       file,
-			       line,
-			       verbosity_strings[verbosity_index],
-			       message,
-			       verbosity_colours[ARRAY_SIZE(verbosity_colours) - 1]);
-		}
-		else
-		{
-			printf("%s%s(%d) %s [0x%08x]: %s%s\n",
-			       verbosity_colours[verbosity_index],
-			       file,
-			       line,
-			       verbosity_strings[verbosity_index],
-			       exit_code,
-			       message,
-			       verbosity_colours[ARRAY_SIZE(verbosity_colours) - 1]);
+		snprintf(log_message,
+		         sizeof(log_message),
+		         "%s%s(%d) %s [0x%08x]: %s%s\n",
+		         verbosity_colours[verbosity_index],
+		         file,
+		         line,
+		         verbosity_strings[verbosity_index],
+		         exit_code,
+		         message,
+		         verbosity_colours[ARRAY_SIZE(verbosity_colours) - 1]);
+	}
+	else if (verbosity & VERB_ERROR)
+	{
+		snprintf(log_message,
+		         sizeof(log_message),
+		         "%s%s(%d) %s: %s%s\n",
+		         verbosity_colours[verbosity_index],
+		         file,
+		         line,
+		         verbosity_strings[verbosity_index],
+		         message,
+		         verbosity_colours[ARRAY_SIZE(verbosity_colours) - 1]);
+	}
+	else
+	{
+		snprintf(log_message,
+		         sizeof(log_message),
+		         "%s%s: %s%s\n",
+		         verbosity_colours[verbosity_index],
+		         verbosity_strings[verbosity_index],
+		         message,
+		         verbosity_colours[ARRAY_SIZE(verbosity_colours) - 1]);
+	}
 
-			exit(exit_code);
-		}
+	printf(log_message);
+	if (verbosity & VERB_FATAL)
+	{
+		exit(exit_code);
 	}
 
 	va_end(args);
