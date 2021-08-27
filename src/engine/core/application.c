@@ -7,38 +7,54 @@
 
 #include "logger.h"
 
+#include "renderer/renderer.h"
+
 static Application application;
 
 int application_initialise()
 {
-	int success = glfwInit();
-
+	int success = 1;
+	
+	success = glfwInit();
 	if (!success)
 	{
 		LOG_ERROR("Failed to initalise GLFW");
-		return 0;
+		goto glfw_init_fail;
 	}
 
 	application.window = window_create();
 	if (application.window == NULL)
 	{
 		LOG_ERROR("Failed to create Window");
-		return 0;
+		goto window_create_fail;
 	}
-	
-	LOG_DEBUG("Applicaiton initalised");
+
+	success = renderer_init();
+	if (!success)
+	{
+		LOG_ERROR("Failed to initalise the renderer");
+		goto renderer_init_fail;
+	}
+
 	return 1;
+
+renderer_init_fail:
+	window_destroy(application.window);
+window_create_fail:
+	glfwTerminate();
+glfw_init_fail:
+	return 0;
 }
 
 void application_destroy()
 {
+	renderer_deinit();
+
 	window_destroy(application.window);
 	glfwTerminate();
-	LOG_DEBUG("Application Destroyed");
 }
 
 void application_run()
 {
-	LOG_DEBUG("Application Running");
 	window_update(application.window);
 }
