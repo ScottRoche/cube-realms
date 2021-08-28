@@ -1,7 +1,9 @@
 #include "renderer.h"
 
-#include "instance.h"
 #include "core/logger.h"
+
+#include "instance.h"
+#include "devices.h"
 
 /******************************************************************************
  * @name Renderer
@@ -10,6 +12,7 @@
 struct Renderer 
 {
 	Instance *instance;
+	PhysicalDevice *physical_device;
 };
 
 static struct Renderer renderer;
@@ -20,13 +23,26 @@ int renderer_init()
 	if (renderer.instance == NULL)
 	{
 		LOG_ERROR("instance_create failed");
-		return 0;
+		goto instance_create_fail;
+	}
+
+	renderer.physical_device = physical_device_create(renderer.instance);
+	if (renderer.physical_device == NULL)
+	{
+		LOG_ERROR("physical_device_create failed");
+		goto physical_device_create_fail;
 	}
 
 	return 1;
+
+physical_device_create_fail:
+	instance_destroy(renderer.instance);
+instance_create_fail:
+	return 0;
 }
 
 void renderer_deinit()
 {
 	instance_destroy(renderer.instance);
+	physical_device_destroy(renderer.physical_device);
 }

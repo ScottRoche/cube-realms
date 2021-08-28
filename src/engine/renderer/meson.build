@@ -1,2 +1,3 @@
 renderer_sources = files('renderer.c',
-                         'instance.c')
+                         'instance.c',
+                         'devices.c')
