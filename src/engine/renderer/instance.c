@@ -35,8 +35,15 @@ static const char **get_required_extensions(uint32_t *count)
 	for (i = 0; i < *count; i++)
 	{
 		char temp_string[64];
-
-		snprintf(temp_string, (size_t)64, "\t\t%s\n", extensions[i]);
+		
+		if (i < *count - 1)
+		{
+			snprintf(temp_string, (size_t)64, "\t\t%s\n", extensions[i]);
+		}
+		else
+		{
+			snprintf(temp_string, (size_t)64, "\t\t%s", extensions[i]);
+		}
 		strncat(extension_list, temp_string, (size_t)64);
 	}
 
@@ -71,11 +78,15 @@ static int validate_validation_layers()
 		{
 			if (strcmp(validation_layers[i], available_layers[j].layerName) == 0)
 			{
-				LOG_DEBUG("Validation Layer %s found", validation_layers[i]);
 				layer_found = 1;
 				break;
 			}
 		}
+	}
+
+	if (layer_found == 0)
+	{
+		LOG_WARNING("Couldn't find any valid validation layers")
 	}
 
 	free(available_layers);
@@ -105,20 +116,22 @@ Instance *instance_create()
 		return NULL;
 	}
 
-	if (!validate_validation_layers())
-	{
-		LOG_ERROR("validate_validation_layers() found no valid layers")
-		return NULL;
-	}
+	validate_validation_layers();
 
 	VkInstanceCreateInfo instance_info = {
 		.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
 		.pApplicationInfo = &app_info,
 		.enabledExtensionCount = extension_count,
 		.ppEnabledExtensionNames = extensions,
-		.ppEnabledLayerNames = validation_layers,
-		.enabledLayerCount = 1
 	};
+
+#if defined (DEBUG)
+	if (validate_validation_layers())
+	{
+		instance_info.ppEnabledLayerNames = validation_layers;
+		instance_info.enabledLayerCount = 1;
+	}
+#endif
 
 	instance = malloc(sizeof(Instance));
 	success = vkCreateInstance(&instance_info, NULL, &instance->handle);

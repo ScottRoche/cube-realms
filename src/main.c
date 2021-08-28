@@ -11,9 +11,8 @@ int main(int argc, char **argv)
 	if (success)
 	{
 		application_run();
+		application_destroy();
 	}
 
-	application_destroy();
-	
 	return success ? EXIT_SUCCESS : EXIT_FAILURE;
 }

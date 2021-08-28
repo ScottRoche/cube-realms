@@ -18,7 +18,7 @@ Xi = dependency('xi')
 Xext = dependency('xext')
 
 if get_option('buildtype') == 'debug'
-	add_project_arguments('-DDEBUG=0', language : 'c')
+	add_project_arguments('-DDEBUG=1', language : 'c')
 endif
 
 engine_dependencies = [glfw3,

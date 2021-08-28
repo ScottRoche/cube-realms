@@ -5,6 +5,11 @@
 
 #include "logger.h"
 
+static void error_callback(int error, const char *description)
+{
+	LOG_ERROR("%d - %s", error, description);
+}
+
 Window *window_create()
 {
 	Window *window = malloc(sizeof(Window));
@@ -18,6 +23,8 @@ Window *window_create()
 		LOG_ERROR("Failed to create GLFWwindow");
 		return NULL;
 	}
+
+	glfwSetErrorCallback(&error_callback);
 
 	return window;
 }
