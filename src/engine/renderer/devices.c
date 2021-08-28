@@ -5,22 +5,10 @@
 
 #include "core/logger.h"
 
-/******************************************************************************
- * @name  QueueFamilyIndicies
- * @brief A struct to store indicies of queue families found on a physical device.
- * 
- * @TODO: Abstract queues/queue families into its own file as these will be used
- * all around the project and are not confined to this file.
-******************************************************************************/
-struct QueueFamilyIndicies
-{
-	int graphics_family;
-	int present_family;
+static const char *device_extensions[] = {
+	VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
-/******************************************************************************
- * Physical Devices
-******************************************************************************/
 /******************************************************************************
  * @name        find_queue_family()
  * @brief       Finds valid queue families and sets each families index into
@@ -72,10 +60,6 @@ static void find_queue_family(VkPhysicalDevice *device,
 ******************************************************************************/
 static int check_device_extension_support(VkPhysicalDevice *device)
 {
-	static const char *device_extensions[] = {
-		VK_KHR_SWAPCHAIN_EXTENSION_NAME
-	};
-
 	VkExtensionProperties *extensions;
 	uint32_t device_extension_count;
 	uint32_t extension_count;
@@ -118,7 +102,8 @@ static int check_device_extension_support(VkPhysicalDevice *device)
  * @return      An integer to represent the success of the check. If 1 is returned
  *              it was successful, else the device wasn't suitable.
 ******************************************************************************/
-static int suitable_device_found(VkPhysicalDevice *device)
+static int suitable_device_found(VkPhysicalDevice *device,
+                                 struct QueueFamilyIndicies *queue_family_indicies)
 {
 	VkPhysicalDeviceProperties device_properties;
 	struct QueueFamilyIndicies indicies = {-1, -1};
@@ -133,69 +118,112 @@ static int suitable_device_found(VkPhysicalDevice *device)
 		return 0;
 	}
 
-	if (indicies.graphics_family != -1 && indicies.present_family != -1)
+	/* TODO: check for present family. */
+	if (indicies.graphics_family != -1)
 	{
+		*queue_family_indicies = indicies;
 		return 1;
 	}
 
 	return 0;
 }
 
-PhysicalDevice *physical_device_create(Instance *instance)
+/******************************************************************************
+ * @name      select_physical_device()
+ * @brief     Selects the physical device to be used.
+ * @param[in] device   The device object in which will store the physical device.
+ * @param[in] instance The vulkan instance.
+ * @result    An integer value representitive of the success. 1 if successful,
+ *            0 if the selection failed.
+******************************************************************************/
+static int select_physical_device(Device *restrict device,
+                                  const Instance *restrict instance)
 {
-	PhysicalDevice *device = malloc(sizeof(PhysicalDevice));
-	VkPhysicalDevice *possible_devices;
-	uint32_t device_count;
+	VkPhysicalDevice *devices;
+	uint32_t device_count = 0;
 	uint32_t i;
 
 	vkEnumeratePhysicalDevices(instance->handle, &device_count, NULL);
 
 	if (device_count == 0)
 	{
-		LOG_ERROR("Failed to find device with Vulkan support")
+		LOG_ERROR("Failed to find any devices with Vulkan support")
 		free(device);
-		return NULL;
+		return 0;
 	}
 
-	possible_devices = malloc(sizeof(VkPhysicalDevice) * device_count);
-	vkEnumeratePhysicalDevices(instance->handle, &device_count, possible_devices);
+	devices = malloc(sizeof(VkPhysicalDevice) * device_count);
+	vkEnumeratePhysicalDevices(instance->handle,
+	                           &device_count,
+	                           devices);
 
 	for (i = 0; i < device_count; i++)
 	{
-		if (suitable_device_found(&possible_devices[i]))
+		if (suitable_device_found(&devices[i], &device->queue_family_indicies))
 		{
-			device->handle = possible_devices[i];
-			break;
+			device->physical_device = devices[i];
+			free(devices);
+			return 1;
 		}
 	}
 
-	if (device->handle == VK_NULL_HANDLE)
+	free(devices);
+	return 0;
+}
+
+Device *device_create(const Instance *const instance)
+{
+	Device *device = malloc(sizeof(Device));
+	uint32_t success;
+	float queue_priority = 1.0f;
+
+	device->queue_family_indicies.graphics_family = -1;
+	device->queue_family_indicies.present_family = -1;
+
+	success = select_physical_device(device, instance);
+	if (success == 0)
 	{
-		LOG_ERROR("Failed to find suitable device\n");
+		LOG_ERROR("Failed to select a physical device")
 		free(device);
 		return NULL;
 	}
 
-	return device;
-}
+	// Create a logical device
+	VkDeviceQueueCreateInfo graphics_queue_info = {
+		.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+		.queueFamilyIndex = (uint32_t)device->queue_family_indicies.graphics_family,
+		.queueCount = 1,
+		.pQueuePriorities = &queue_priority
+	};
 
-void physical_device_destroy(PhysicalDevice *device)
-{
-	free(device);
-}
+	VkPhysicalDeviceFeatures physical_device_features = {};
 
-/******************************************************************************
- * Logic Devices
-******************************************************************************/
-Device *device_create(PhysicalDevice *physical_device)
-{
-	Device *device = malloc(sizeof(Device));
+	VkDeviceCreateInfo device_info = {
+		.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+		.pQueueCreateInfos = &graphics_queue_info,
+		.queueCreateInfoCount = 1,
+		.pEnabledFeatures = &physical_device_features,
+		.enabledExtensionCount = 1,
+		.ppEnabledExtensionNames = device_extensions,
+		.enabledLayerCount = 0
+	};
+
+	success = vkCreateDevice(device->physical_device,
+	                         &device_info,
+	                         NULL,
+	                         &device->logical_device);
+	if (success != VK_SUCCESS)
+	{
+		LOG_ERROR("vkCreateDevice failed")
+		free(device);
+		return NULL;
+	}
 
 	return device;
 }
 
 void device_destroy(Device *device)
 {
-	vkDestroyDevice(device->handle, NULL);
+	vkDestroyDevice(device->logical_device, NULL);
 	free(device);
 }

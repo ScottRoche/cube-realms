@@ -7,14 +7,17 @@
 #include "instance.h"
 
 /******************************************************************************
- * @name  _PhysicalDevice
- * @brief An object to hold physical device. 
+ * @name  QueueFamilyIndicies
+ * @brief A struct to store indicies of queue families found on a physical device.
+ * 
+ * @TODO: Abstract queues/queue families into its own file as these will be used
+ * all around the project and are not confined to this file.
 ******************************************************************************/
-struct _PhysicalDevice
+struct QueueFamilyIndicies
 {
-	VkPhysicalDevice handle;
+	int64_t graphics_family;
+	int64_t present_family;
 };
-typedef struct _PhysicalDevice PhysicalDevice;
 
 /******************************************************************************
  * @name  _Device
@@ -22,26 +25,14 @@ typedef struct _PhysicalDevice PhysicalDevice;
 ******************************************************************************/
 struct _Device
 {
-	VkDevice handle;
+	VkDevice logical_device;
+	VkPhysicalDevice physical_device;
+
+	struct QueueFamilyIndicies queue_family_indicies;
+
+	VkQueue graphics_queue;
 };
 typedef struct _Device Device;
-
-/******************************************************************************
- * @name        physical_device_create()
- * @brief       Creates a PhysicalDevice for a suitable device.
- * @param[in]   instance The vulkan instance.
- * @return      A pointer to the PhysicalDevice object.
-******************************************************************************/
-PhysicalDevice *physical_device_create(Instance *instance);
-
-/******************************************************************************
- * @name        physical_device_destory()
- * @brief       Cleans up and destroys a PhysicalDevice.
- * @param[in]   device The PhysicalDevice to cleanup and destroy.
- * @return      void.
-******************************************************************************/
-void physical_device_destroy(PhysicalDevice *device);
-
 
 /******************************************************************************
  * @name        device_create()
@@ -50,7 +41,8 @@ void physical_device_destroy(PhysicalDevice *device);
  * @return      A pointer to a Device object. If unsuccessful the value of this
  *              pointer will be NULL.
 ******************************************************************************/
-Device *device_create(PhysicalDevice *physical_device);
+Device *device_create(const Instance *const instance);
+
 /******************************************************************************
  * @name        device_destroy()
  * @brief       Cleans up and destroys a Device.

@@ -12,7 +12,7 @@
 struct Renderer 
 {
 	Instance *instance;
-	PhysicalDevice *physical_device;
+	Device *device;
 };
 
 static struct Renderer renderer;
@@ -22,27 +22,26 @@ int renderer_init()
 	renderer.instance = instance_create();
 	if (renderer.instance == NULL)
 	{
-		LOG_ERROR("instance_create failed");
 		goto instance_create_fail;
 	}
 
-	renderer.physical_device = physical_device_create(renderer.instance);
-	if (renderer.physical_device == NULL)
+	renderer.device = device_create(renderer.instance);
+	if (renderer.device == NULL)
 	{
-		LOG_ERROR("physical_device_create failed");
-		goto physical_device_create_fail;
+		goto device_create_fail;
 	}
 
 	return 1;
 
-physical_device_create_fail:
+device_create_fail:
 	instance_destroy(renderer.instance);
+
 instance_create_fail:
 	return 0;
 }
 
 void renderer_deinit()
 {
+	device_destroy(renderer.device);
 	instance_destroy(renderer.instance);
-	physical_device_destroy(renderer.physical_device);
 }
