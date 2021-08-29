@@ -128,7 +128,7 @@ static int suitable_device_found(VkPhysicalDevice *device,
 	}
 
 	/* TODO: check for present family. */
-	if (indicies.graphics_family != -1 && indicies.graphics_family != -1)
+	if (indicies.graphics_family != -1 && indicies.present_family != -1)
 	{
 		*queue_family_indicies = indicies;
 		return 1;
@@ -211,12 +211,22 @@ Device *device_create(const Instance *const instance,
 		.pQueuePriorities = &queue_priority
 	};
 
+	VkDeviceQueueCreateInfo present_queue_info = {
+		.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+		.queueFamilyIndex = (uint32_t)device->queue_family_indicies.present_family,
+		.queueCount = 1,
+		.pQueuePriorities = &queue_priority
+	};
+
 	VkPhysicalDeviceFeatures physical_device_features = {};
+
+	VkDeviceQueueCreateInfo queue_create_infos[] = {graphics_queue_info,
+	                                                present_queue_info};
 
 	VkDeviceCreateInfo device_info = {
 		.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
-		.pQueueCreateInfos = &graphics_queue_info,
-		.queueCreateInfoCount = 1,
+		.pQueueCreateInfos = queue_create_infos,
+		.queueCreateInfoCount = 2,
 		.pEnabledFeatures = &physical_device_features,
 		.enabledExtensionCount = 1,
 		.ppEnabledExtensionNames = device_extensions,
@@ -233,6 +243,16 @@ Device *device_create(const Instance *const instance,
 		free(device);
 		return NULL;
 	}
+
+	vkGetDeviceQueue(device->logical_device,
+	                 device->queue_family_indicies.graphics_family,
+	                 0,
+	                 &device->graphics_queue);
+
+	vkGetDeviceQueue(device->logical_device,
+	                 device->queue_family_indicies.present_family,
+	                 0,
+	                 &device->present_queue);
 
 	return device;
 }

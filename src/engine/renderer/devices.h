@@ -31,6 +31,7 @@ struct _Device
 	struct QueueFamilyIndicies queue_family_indicies;
 
 	VkQueue graphics_queue;
+	VkQueue present_queue;
 };
 typedef struct _Device Device;
 
