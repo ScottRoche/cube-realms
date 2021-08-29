@@ -36,12 +36,14 @@ typedef struct _Device Device;
 
 /******************************************************************************
  * @name        device_create()
- * @brief       Creates a logical device for a PhysicalDevice.
- * @param[in]   physical_device The physical device to represent.
- * @return      A pointer to a Device object. If unsuccessful the value of this
- *              pointer will be NULL.
+ * @brief       Creates a Device object which holds properties for the physical
+ *              and logical device.
+ * @param[in]   instance The vulkan instance.
+ * @param[in]   render_surface 
+ * @return      A pointer to a Device struct.
 ******************************************************************************/
-Device *device_create(const Instance *const instance);
+Device *device_create(const Instance *const instance,
+                      const VkSurfaceKHR *render_surface);
 
 /******************************************************************************
  * @name        device_destroy()

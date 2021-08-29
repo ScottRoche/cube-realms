@@ -29,7 +29,7 @@ int application_initialise()
 		goto window_create_fail;
 	}
 
-	success = renderer_init();
+	success = renderer_init(application.window);
 	if (!success)
 	{
 		LOG_ERROR("Failed to initalise the renderer");

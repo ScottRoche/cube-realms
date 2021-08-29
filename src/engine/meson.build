@@ -26,7 +26,7 @@ engine_dependencies = [glfw3,
                        Xrandr,
                        X11,
                        Xi,
-					   Xext,
+                       Xext,
                        dl_dep,
                        pthread_dep,
                        Xxf86vm_dep]

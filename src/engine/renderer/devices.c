@@ -10,47 +10,6 @@ static const char *device_extensions[] = {
 };
 
 /******************************************************************************
- * @name        find_queue_family()
- * @brief       Finds valid queue families and sets each families index into
- *              indicies.
- * @param[in]   device   The device to find the queue families in.
- * @param[in]   indicies The struct to store the indicies of each queue family.
- * @return      void
- * 
- * TODO: Should be abstracted out of this file to be with theQueueFamilyIndicies
- * struct when that happens.
-******************************************************************************/
-static void find_queue_family(VkPhysicalDevice *device,
-                              struct QueueFamilyIndicies *indicies)
-{
-	VkQueueFamilyProperties *queue_family_properties;
-	uint32_t queue_family_count;
-	uint32_t i;
-
-	vkGetPhysicalDeviceQueueFamilyProperties(*device, &queue_family_count, NULL);
-
-	queue_family_properties =
-		malloc(sizeof(VkQueueFamilyProperties) * queue_family_count);
-	vkGetPhysicalDeviceQueueFamilyProperties(*device,
-	                                         &queue_family_count,
-	                                         queue_family_properties);
-
-	for (i = 0; i < queue_family_count; i++)
-	{
-		/**
-		 * TODO: call vkGetPhysicalDeviceSurfaceSupportKHR and deal with
-		 * present family support.
-		 */
-		if (queue_family_properties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
-		{
-			indicies->graphics_family = i;
-		}
-	}
-
-	free(queue_family_properties);
-}
-
-/******************************************************************************
  * @name        check_device_extension_support()
  * @brief       Checks a device against a set of extensions that are required.
  * @param[in]   device The physical device to check extension support for.
@@ -96,6 +55,55 @@ static int check_device_extension_support(VkPhysicalDevice *device)
 }
 
 /******************************************************************************
+ * @name        find_queue_family()
+ * @brief       Finds valid queue families and sets each families index into
+ *              indicies.
+ * @param[in]   device   The device to find the queue families in.
+ * @param[in]   indicies The struct to store the indicies of each queue family.
+ * @return      void
+ * 
+ * TODO: Should be abstracted out of this file to be with theQueueFamilyIndicies
+ * struct when that happens.
+******************************************************************************/
+static void find_queue_family(VkPhysicalDevice *device,
+                              struct QueueFamilyIndicies *indicies,
+                              const VkSurfaceKHR *render_surface)
+{
+	VkQueueFamilyProperties *queue_family_properties;
+	VkBool32 present_support;
+	uint32_t queue_family_count;
+	uint32_t i;
+
+	vkGetPhysicalDeviceQueueFamilyProperties(*device, &queue_family_count, NULL);
+
+	queue_family_properties =
+		malloc(sizeof(VkQueueFamilyProperties) * queue_family_count);
+	vkGetPhysicalDeviceQueueFamilyProperties(*device,
+	                                         &queue_family_count,
+	                                         queue_family_properties);
+
+	for (i = 0; i < queue_family_count; i++)
+	{
+		vkGetPhysicalDeviceSurfaceSupportKHR(*device,
+		                                     i,
+		                                     *render_surface,
+		                                     &present_support);
+		if (present_support)
+		{
+			indicies->present_family = i;
+		}
+
+		if (queue_family_properties[i].queueFlags & VK_QUEUE_GRAPHICS_BIT)
+		{
+			indicies->graphics_family = i;
+		}
+	}
+
+	free(queue_family_properties);
+}
+
+
+/******************************************************************************
  * @name        suitable_device_found()
  * @brief       Checks a device for required extensions and queue families.
  * @param[in]   device The device to be check for suitability.
@@ -103,14 +111,15 @@ static int check_device_extension_support(VkPhysicalDevice *device)
  *              it was successful, else the device wasn't suitable.
 ******************************************************************************/
 static int suitable_device_found(VkPhysicalDevice *device,
-                                 struct QueueFamilyIndicies *queue_family_indicies)
+                                 struct QueueFamilyIndicies *queue_family_indicies,
+                                 const VkSurfaceKHR *render_surface)
 {
 	VkPhysicalDeviceProperties device_properties;
 	struct QueueFamilyIndicies indicies = {-1, -1};
 
 	vkGetPhysicalDeviceProperties(*device, &device_properties);
 
-	find_queue_family(device, &indicies);
+	find_queue_family(device, &indicies, render_surface);
 
 	if (!check_device_extension_support(device))
 	{
@@ -119,7 +128,7 @@ static int suitable_device_found(VkPhysicalDevice *device,
 	}
 
 	/* TODO: check for present family. */
-	if (indicies.graphics_family != -1)
+	if (indicies.graphics_family != -1 && indicies.graphics_family != -1)
 	{
 		*queue_family_indicies = indicies;
 		return 1;
@@ -137,11 +146,13 @@ static int suitable_device_found(VkPhysicalDevice *device,
  *            0 if the selection failed.
 ******************************************************************************/
 static int select_physical_device(Device *restrict device,
-                                  const Instance *restrict instance)
+                                  const Instance *restrict instance,
+                                  const VkSurfaceKHR *render_surface)
 {
 	VkPhysicalDevice *devices;
 	uint32_t device_count = 0;
 	uint32_t i;
+	int success;
 
 	vkEnumeratePhysicalDevices(instance->handle, &device_count, NULL);
 
@@ -159,7 +170,10 @@ static int select_physical_device(Device *restrict device,
 
 	for (i = 0; i < device_count; i++)
 	{
-		if (suitable_device_found(&devices[i], &device->queue_family_indicies))
+		success = suitable_device_found(&devices[i],
+		                                &device->queue_family_indicies,
+		                                render_surface);
+		if (success)
 		{
 			device->physical_device = devices[i];
 			free(devices);
@@ -171,7 +185,8 @@ static int select_physical_device(Device *restrict device,
 	return 0;
 }
 
-Device *device_create(const Instance *const instance)
+Device *device_create(const Instance *const instance,
+                      const VkSurfaceKHR *render_surface)
 {
 	Device *device = malloc(sizeof(Device));
 	uint32_t success;
@@ -180,7 +195,7 @@ Device *device_create(const Instance *const instance)
 	device->queue_family_indicies.graphics_family = -1;
 	device->queue_family_indicies.present_family = -1;
 
-	success = select_physical_device(device, instance);
+	success = select_physical_device(device, instance, render_surface);
 	if (success == 0)
 	{
 		LOG_ERROR("Failed to select a physical device")
