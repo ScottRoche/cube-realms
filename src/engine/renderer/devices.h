@@ -7,11 +7,24 @@
 #include "instance.h"
 
 /******************************************************************************
+ * @name  DeviceSwapChainSupportDetails
+ * @brief A struct containing details about a physical devices support for swap
+ *        chains.
+******************************************************************************/
+struct DeviceSwapChainSupportDetails
+{
+	VkSurfaceCapabilitiesKHR capabilities;
+
+	VkSurfaceFormatKHR *formats;
+	uint32_t formats_count;
+
+	VkPresentModeKHR *present_modes;
+	uint32_t present_modes_count;
+};
+
+/******************************************************************************
  * @name  QueueFamilyIndicies
  * @brief A struct to store indicies of queue families found on a physical device.
- * 
- * @TODO: Abstract queues/queue families into its own file as these will be used
- * all around the project and are not confined to this file.
 ******************************************************************************/
 struct QueueFamilyIndicies
 {
@@ -28,6 +41,7 @@ struct _Device
 	VkDevice logical_device;
 	VkPhysicalDevice physical_device;
 
+	struct DeviceSwapChainSupportDetails swap_chain_details;
 	struct QueueFamilyIndicies queue_family_indicies;
 
 	VkQueue graphics_queue;

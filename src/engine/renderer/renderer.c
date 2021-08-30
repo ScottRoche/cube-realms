@@ -4,6 +4,7 @@
 
 #include "instance.h"
 #include "devices.h"
+#include "swap_chain.h"
 
 /******************************************************************************
  * @name Renderer
@@ -14,6 +15,7 @@ struct Renderer
 	Instance *instance;
 	Device *device;
 	VkSurfaceKHR render_surface;
+	SwapChain *swap_chain;
 };
 
 static struct Renderer renderer;
@@ -45,8 +47,18 @@ int renderer_init(const Window *window)
 		goto device_create_fail;
 	}
 
+	renderer.swap_chain = swap_chain_create(window,
+	                                        renderer.device,
+	                                        &renderer.render_surface);
+	if (renderer.swap_chain == NULL)
+	{
+		goto swap_chain_create_fail;
+	}
 
 	return 1;
+
+swap_chain_create_fail:
+	device_destroy(renderer.device);
 
 device_create_fail:
 	vkDestroySurfaceKHR(renderer.instance->handle,
@@ -62,6 +74,7 @@ instance_create_fail:
 
 void renderer_deinit()
 {
+	swap_chain_destroy(renderer.swap_chain, renderer.device);
 	vkDestroySurfaceKHR(renderer.instance->handle,
 	                    renderer.render_surface,
 	                    NULL);

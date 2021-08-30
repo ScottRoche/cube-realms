@@ -55,6 +55,71 @@ static int check_device_extension_support(VkPhysicalDevice *device)
 }
 
 /******************************************************************************
+ * @name      device_query_swap_chain_support_details()
+ * @brief     Queries a physical device for swap chain support details including
+ *            capabilities, a list of formats and a list of present modes.
+ * @param[in] device         The physical device to query.
+ * @param[in] render_surface The render surface to query the swap chain details on.
+ * @return    A DeviceSwapChainSupportDetails struct with device specific details
+ *            about swap chain support.
+******************************************************************************/
+static struct DeviceSwapChainSupportDetails
+	device_query_swap_chain_support_details(VkPhysicalDevice *device,
+	                                        const VkSurfaceKHR *render_surface)
+{
+	struct DeviceSwapChainSupportDetails details = {
+		.formats = NULL,
+		.formats_count = 0,
+		.present_modes = NULL,
+		.present_modes_count = 0
+	};
+
+	vkGetPhysicalDeviceSurfaceCapabilitiesKHR(*device,
+	                                          *render_surface,
+	                                          &details.capabilities);
+
+	vkGetPhysicalDeviceSurfaceFormatsKHR(*device,
+	                                     *render_surface,
+	                                     &details.formats_count,
+	                                     NULL);
+
+	if (details.formats_count != 0)
+	{
+		details.formats =
+			malloc(sizeof(VkSurfaceFormatKHR) * details.formats_count);
+		vkGetPhysicalDeviceSurfaceFormatsKHR(*device,
+		                                     *render_surface,
+		                                     &details.formats_count,
+		                                     details.formats);
+	}
+	else
+	{
+		LOG_ERROR("Failed to get device surface formats")
+	}
+
+	vkGetPhysicalDeviceSurfacePresentModesKHR(*device,
+	                                          *render_surface,
+	                                          &details.present_modes_count,
+	                                          NULL);
+
+	if (details.present_modes_count != 0)
+	{
+		details.present_modes =
+			malloc(sizeof(VkPresentModeKHR) * details.present_modes_count);
+		vkGetPhysicalDeviceSurfacePresentModesKHR(*device,
+		                                          *render_surface,
+		                                          &details.present_modes_count,
+		                                          details.present_modes);
+	}
+	else
+	{
+		LOG_ERROR("Failed to get device surface present modes")
+	}
+
+	return details;
+}
+
+/******************************************************************************
  * @name        find_queue_family()
  * @brief       Finds valid queue families and sets each families index into
  *              indicies.
@@ -112,10 +177,12 @@ static void find_queue_family(VkPhysicalDevice *device,
 ******************************************************************************/
 static int suitable_device_found(VkPhysicalDevice *device,
                                  struct QueueFamilyIndicies *queue_family_indicies,
-                                 const VkSurfaceKHR *render_surface)
+                                 const VkSurfaceKHR *render_surface,
+                                 struct DeviceSwapChainSupportDetails *details)
 {
 	VkPhysicalDeviceProperties device_properties;
 	struct QueueFamilyIndicies indicies = {-1, -1};
+	uint8_t adequate_swap_chain_support;
 
 	vkGetPhysicalDeviceProperties(*device, &device_properties);
 
@@ -127,11 +194,13 @@ static int suitable_device_found(VkPhysicalDevice *device,
 		return 0;
 	}
 
-	/* TODO: check for present family. */
+	*details = device_query_swap_chain_support_details(device, render_surface);
+	adequate_swap_chain_support = details->formats != NULL && details->present_modes != NULL;
+
 	if (indicies.graphics_family != -1 && indicies.present_family != -1)
 	{
 		*queue_family_indicies = indicies;
-		return 1;
+		return adequate_swap_chain_support;
 	}
 
 	return 0;
@@ -170,12 +239,15 @@ static int select_physical_device(Device *restrict device,
 
 	for (i = 0; i < device_count; i++)
 	{
+		struct DeviceSwapChainSupportDetails swap_chain_support;
 		success = suitable_device_found(&devices[i],
 		                                &device->queue_family_indicies,
-		                                render_surface);
+		                                render_surface,
+		                                &swap_chain_support);
 		if (success)
 		{
 			device->physical_device = devices[i];
+			device->swap_chain_details = swap_chain_support;
 			free(devices);
 			return 1;
 		}
@@ -260,5 +332,7 @@ Device *device_create(const Instance *const instance,
 void device_destroy(Device *device)
 {
 	vkDestroyDevice(device->logical_device, NULL);
+	free(device->swap_chain_details.formats);
+	free(device->swap_chain_details.present_modes);
 	free(device);
 }
