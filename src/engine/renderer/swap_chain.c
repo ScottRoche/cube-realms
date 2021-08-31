@@ -100,6 +100,61 @@ static VkExtent2D swap_chain_get_extent(const SwapChain *swap_chain,
 	return actual_extent;
 }
 
+/******************************************************************************
+ * @name      swap_chain_image_views_create()
+ * @brief     Creates image views from swap chain images.
+ * @param[in] swap_chain The swap chain to retrieve the images from and the
+ *                       image views to be stored in.
+ * @param[in] device     The device to create the image views for.
+ * @return    An integer to determine the success of this function, 1 if successful
+ *            0 if unsuccessful.
+******************************************************************************/
+static uint32_t swap_chain_image_views_create(SwapChain *restrict swap_chain,
+                                              const Device *restrict device)
+{
+	VkImageView *image_views = calloc(swap_chain->image_count, sizeof(VkImageView));
+
+	for (int i = 0; i < swap_chain->image_count; i++)
+	{
+		VkResult success;
+
+		VkImageViewCreateInfo image_view_info = {
+			.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+			.image = swap_chain->images[i],
+			.viewType = VK_IMAGE_VIEW_TYPE_2D,
+			.format = swap_chain->format,
+			.components.r = VK_COMPONENT_SWIZZLE_IDENTITY,
+			.components.g = VK_COMPONENT_SWIZZLE_IDENTITY,
+			.components.b = VK_COMPONENT_SWIZZLE_IDENTITY,
+			.components.a = VK_COMPONENT_SWIZZLE_IDENTITY,
+			.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+			.subresourceRange.baseMipLevel = 0,
+			.subresourceRange.levelCount = 1,
+			.subresourceRange.baseArrayLayer = 0,
+			.subresourceRange.layerCount = 1
+		};
+
+		success = vkCreateImageView(device->logical_device,
+		                            &image_view_info,
+		                            NULL,
+		                            &image_views[i]);
+
+		if (success != VK_SUCCESS)
+		{
+			LOG_ERROR("Failed to create an image view for image %d", i);
+			for (int j = 0; j <= i; j++)
+			{
+				vkDestroyImageView(device->logical_device, image_views[j], NULL);
+			}
+			free(image_views);
+			return 0;
+		}
+	}
+
+	swap_chain->image_views = image_views;
+	return 1;
+}
+
 SwapChain *swap_chain_create(const Window *restrict window,
                              const Device *restrict device,
                              const VkSurfaceKHR *restrict surface)
@@ -173,7 +228,7 @@ SwapChain *swap_chain_create(const Window *restrict window,
 
 	if (success != VK_SUCCESS)
 	{
-		LOG_ERROR("vkCreatSwapchainKHR failed");
+		LOG_ERROR("vkCreateSwapchainKHR failed");
 		free(swap_chain);
 		return NULL;
 	}
@@ -192,14 +247,32 @@ SwapChain *swap_chain_create(const Window *restrict window,
 	swap_chain->format = surface_format.format;
 	swap_chain->extent = swap_chain_extent;
 
+	if (!swap_chain_image_views_create(swap_chain, device))
+	{
+		vkDestroySwapchainKHR(device->logical_device,
+		                      swap_chain->handle,
+		                      NULL);
+		free(swap_chain->images);
+		free(swap_chain);
+	}
+
 	return swap_chain;
 }
 
 void swap_chain_destroy(SwapChain *swap_chain, const Device *device)
 {
+	for (int i = 0; i < swap_chain->image_count; i++)
+	{
+		vkDestroyImageView(device->logical_device,
+		                   swap_chain->image_views[i],
+		                   NULL);
+	}
+
 	vkDestroySwapchainKHR(device->logical_device,
 	                      swap_chain->handle,
 	                      NULL);
+
+	free(swap_chain->image_views);
 	free(swap_chain->images);
 	free(swap_chain);
 }

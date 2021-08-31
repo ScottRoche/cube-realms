@@ -17,6 +17,7 @@ struct _SwapChain
 	struct DeviceSwapChainSupportDetails support;
 
 	VkImage *images;
+	VkImageView *image_views;
 	uint32_t image_count;
 
 	VkFormat format;
