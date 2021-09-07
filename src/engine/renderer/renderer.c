@@ -1,11 +1,14 @@
 #include "renderer.h"
 
+#include <stdlib.h>
+
 #include "core/logger.h"
 
 #include "instance.h"
 #include "devices.h"
 #include "swap_chain.h"
 #include "graphics_pipeline.h"
+#include "framebuffer.h"
 
 /******************************************************************************
  * @name Renderer
@@ -18,6 +21,9 @@ struct Renderer
 	VkSurfaceKHR render_surface;
 	SwapChain *swap_chain;
 	GraphicsPipeline *graphics_pipeline;
+
+	Framebuffer **framebuffers;
+	uint32_t framebuffer_count;
 };
 
 static struct Renderer renderer;
@@ -64,7 +70,32 @@ int renderer_init(const Window *window)
 		goto graphics_pipeline_create_fail;
 	}
 
+	renderer.framebuffers =
+		malloc(sizeof(Framebuffer*) * renderer.swap_chain->image_count);
+	for (uint32_t i = 0; i < renderer.swap_chain->image_count; i++)
+	{
+		renderer.framebuffers[i] = framebuffer_create(renderer.device,
+		                                              renderer.graphics_pipeline,
+		                                              &renderer.swap_chain->image_views[i],
+		                                              &renderer.swap_chain->extent);
+
+		if (renderer.framebuffers[i] == NULL)
+		{
+			for (uint32_t j = 0; i <= renderer.framebuffer_count; j++)
+			{
+				framebuffer_destroy(renderer.framebuffers[j], renderer.device);
+			}
+			goto framebuffer_create_fail;
+		}
+
+		renderer.framebuffer_count++;
+	}
+
 	return 1;
+
+framebuffer_create_fail:
+	free(renderer.framebuffers);
+	graphics_pipeline_destroy(renderer.graphics_pipeline, renderer.device);
 
 graphics_pipeline_create_fail:
 	swap_chain_destroy(renderer.swap_chain, renderer.device);
@@ -86,6 +117,12 @@ instance_create_fail:
 
 void renderer_deinit()
 {
+	for (uint32_t i = 0; i < renderer.swap_chain->image_count; i++)
+	{
+		framebuffer_destroy(renderer.framebuffers[i], renderer.device);
+	}
+	free(renderer.framebuffers);
+
 	graphics_pipeline_destroy(renderer.graphics_pipeline, renderer.device);
 	swap_chain_destroy(renderer.swap_chain, renderer.device);
 	vkDestroySurfaceKHR(renderer.instance->handle,
