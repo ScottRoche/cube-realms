@@ -9,6 +9,7 @@
 #include "swap_chain.h"
 #include "graphics_pipeline.h"
 #include "framebuffer.h"
+#include "command_buffers.h"
 
 /******************************************************************************
  * @name Renderer
@@ -24,6 +25,9 @@ struct Renderer
 
 	Framebuffer **framebuffers;
 	uint32_t framebuffer_count;
+
+	CommandPool *command_pool;
+	CommandBuffer *command_buffer;
 };
 
 static struct Renderer renderer;
@@ -91,6 +95,14 @@ int renderer_init(const Window *window)
 		renderer.framebuffer_count++;
 	}
 
+	renderer.command_pool = command_pool_create(renderer.device);
+	renderer.command_buffer = command_buffer_create(renderer.command_pool,
+	                                                renderer.device,
+	                                                renderer.graphics_pipeline,
+	                                                renderer.swap_chain,
+	                                                renderer.framebuffers);
+
+
 	return 1;
 
 framebuffer_create_fail:
@@ -122,6 +134,11 @@ void renderer_deinit()
 		framebuffer_destroy(renderer.framebuffers[i], renderer.device);
 	}
 	free(renderer.framebuffers);
+
+	command_buffer_destroy(renderer.command_buffer,
+	                       renderer.command_pool,
+	                       renderer.device);
+	command_pool_destroy(renderer.command_pool, renderer.device);
 
 	graphics_pipeline_destroy(renderer.graphics_pipeline, renderer.device);
 	swap_chain_destroy(renderer.swap_chain, renderer.device);
