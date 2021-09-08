@@ -37,8 +37,5 @@ void window_destroy(Window *restrict window)
 
 void window_update(Window *restrict window)
 {
-	while (!glfwWindowShouldClose(window->handle))
-	{
-		glfwPollEvents();
-	}
+	glfwPollEvents();
 }

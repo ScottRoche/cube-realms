@@ -56,5 +56,9 @@ void application_destroy()
 
 void application_run()
 {
-	window_update(application.window);
+	while (!glfwWindowShouldClose(application.window->handle))
+	{
+		window_update(application.window);
+		renderer_draw();
+	}
 }
