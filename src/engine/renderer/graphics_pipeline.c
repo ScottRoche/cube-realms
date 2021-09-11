@@ -108,7 +108,8 @@ static uint8_t create_render_pass(GraphicsPipeline *pipeline,
 }
 
 GraphicsPipeline *graphics_pipeline_create(const Device *restrict device,
-                                           const SwapChain *restrict swap_chain)
+                                           const SwapChain *restrict swap_chain,
+                                           const VertexData *restrict vertex_data)
 {
 	GraphicsPipeline *pipeline = malloc(sizeof(GraphicsPipeline));
 	VkShaderModule vertex_module = NULL;
@@ -139,10 +140,10 @@ GraphicsPipeline *graphics_pipeline_create(const Device *restrict device,
 
 	VkPipelineVertexInputStateCreateInfo vertex_input_info = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-		.vertexBindingDescriptionCount = 0,
-		.pVertexBindingDescriptions = NULL,
-		.vertexAttributeDescriptionCount = 0,
-		.pVertexAttributeDescriptions = NULL
+		.vertexBindingDescriptionCount = 1,
+		.pVertexBindingDescriptions = &vertex_data->binding_description,
+		.vertexAttributeDescriptionCount = 2,
+		.pVertexAttributeDescriptions = vertex_data->attribute_description
 	};
 
 	VkPipelineInputAssemblyStateCreateInfo input_assembly_info = {

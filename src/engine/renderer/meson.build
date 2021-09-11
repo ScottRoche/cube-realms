@@ -4,4 +4,5 @@ renderer_sources = files('renderer.c',
                          'swap_chain.c',
                          'graphics_pipeline.c',
                          'framebuffer.c',
-                         'command_buffers.c')
+                         'command_buffers.c',
+                         'buffer.c')

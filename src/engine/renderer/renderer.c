@@ -1,6 +1,7 @@
 #include "renderer.h"
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "core/logger.h"
 
@@ -10,6 +11,7 @@
 #include "graphics_pipeline.h"
 #include "framebuffer.h"
 #include "command_buffers.h"
+#include "buffer.h"
 
 /******************************************************************************
  * @name Renderer
@@ -28,6 +30,8 @@ struct Renderer
 
 	CommandPool *command_pool;
 	CommandBuffer *command_buffer;
+
+	VertexBuffer *vbuffer;
 };
 
 static struct Renderer renderer;
@@ -101,8 +105,33 @@ int renderer_init(const Window *window)
 		goto swap_chain_create_fail;
 	}
 
+	float verticies[] = {
+		 0.0f, -0.5f, 1.0f, 0.0f, 0.0f,
+		 0.5f,  0.5f, 0.0f, 1.0f, 0.0f,
+		-0.5f,  0.5f, 0.0f, 0.0f, 1.0f
+	};
+
+	/* Does this really need a create function if it never needs to be destroyed?? */
+	VertexData *vertex_data =
+		vertex_data_create(verticies, sizeof(verticies) / sizeof(float));
+
+	renderer.vbuffer = vertex_buffer_create(renderer.device,
+	                                                   sizeof(verticies));
+
+	void *data;
+	vkMapMemory(renderer.device->logical_device,
+	            renderer.vbuffer->buffer_memory,
+	            0,
+	            sizeof(verticies),
+	            0,
+	            &data);
+	memcpy(data, verticies, sizeof(verticies));
+	vkUnmapMemory(renderer.device->logical_device,
+	              renderer.vbuffer->buffer_memory);
+
 	renderer.graphics_pipeline = graphics_pipeline_create(renderer.device,
-	                                                      renderer.swap_chain);
+	                                                      renderer.swap_chain,
+	                                                      vertex_data);
 	if (renderer.graphics_pipeline == NULL)
 	{
 		goto graphics_pipeline_create_fail;
@@ -139,7 +168,9 @@ int renderer_init(const Window *window)
 	                                                renderer.device,
 	                                                renderer.graphics_pipeline,
 	                                                renderer.swap_chain,
-	                                                renderer.framebuffers);
+	                                                renderer.framebuffers,
+	                                                renderer.vbuffer,
+	                                                sizeof(verticies));
 
 	if (renderer.command_buffer == NULL)
 	{
@@ -150,6 +181,8 @@ int renderer_init(const Window *window)
 	{
 		goto semaphore_create_fail;
 	}
+
+	vertex_data_destroy(vertex_data);
 
 	return 1;
 
@@ -192,6 +225,8 @@ instance_create_fail:
 
 void renderer_deinit()
 {
+	vertex_buffer_destroy(renderer.vbuffer, renderer.device);
+
 	vkDestroySemaphore(renderer.device->logical_device, image_available, NULL);
 	vkDestroySemaphore(renderer.device->logical_device, render_finished, NULL);
 
@@ -270,7 +305,6 @@ void renderer_draw()
 		.pResults = NULL
 	};
 
-	/* We've got to do something about these long accesses. */
 	vkQueuePresentKHR(renderer.device->present_queue,
 	                  &present_info);
 

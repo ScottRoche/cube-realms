@@ -47,7 +47,9 @@ CommandBuffer *command_buffer_create(const CommandPool *restrict pool,
                                       const Device *restrict device,
                                       const GraphicsPipeline *restrict pipeline,
                                       SwapChain *restrict swap_chain,
-                                      Framebuffer **framebuffer_array)
+                                      Framebuffer **framebuffer_array,
+                                      VertexBuffer *restrict vertex_buffer,
+                                      size_t verticies_size)
 {
 	CommandBuffer *buffer = malloc(sizeof(CommandBuffer));
 	VkResult success;
@@ -106,7 +108,10 @@ CommandBuffer *command_buffer_create(const CommandPool *restrict pool,
 		                  VK_PIPELINE_BIND_POINT_GRAPHICS,
 		                  pipeline->handle);
 
-		vkCmdDraw(buffer->buffers[i], 3, 1, 0, 0);
+		VkDeviceSize offset = 0;
+		vkCmdBindVertexBuffers(buffer->buffers[i], 0, 1, (VkBuffer*)vertex_buffer, &offset);
+
+		vkCmdDraw(buffer->buffers[i], verticies_size / sizeof(float), 1, 0, 0);
 		vkCmdEndRenderPass(buffer->buffers[i]);
 
 		if (vkEndCommandBuffer(buffer->buffers[i]) != VK_SUCCESS)

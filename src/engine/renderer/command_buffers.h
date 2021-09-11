@@ -8,6 +8,7 @@
 #include "graphics_pipeline.h"
 #include "swap_chain.h"
 #include "framebuffer.h"
+#include "buffer.h"
 
 /******************************************************************************
  * @name _CommandPool
@@ -56,13 +57,17 @@ void command_pool_destroy(CommandPool *pool, Device *device);
  * @param[in] pipeline          The graphics pipeline to use.
  * @param[in] swap_chain        The swap chain to create command buffers for.
  * @param[in] framebuffer_array An array of framebuffer pointers.
+ * @param[in] vertex_buffer     The vertex buffer the vertex is stored in.
+ * @param     verticies_size    The size of the vertex data to be drawn.
  * @return    A pointer to an array of command buffers.
 ******************************************************************************/
 CommandBuffer *command_buffer_create(const CommandPool *restrict pool,
                                      const Device *restrict device,
                                      const GraphicsPipeline *restrict pipeline,
                                      SwapChain *restrict swap_chain,
-                                     Framebuffer **framebuffer_array);
+                                     Framebuffer **framebuffer_array,
+                                     VertexBuffer *restrict vertex_buffer,
+                                     size_t verticies_size);
 
 /******************************************************************************
  * @name      command_buffer_destroy()

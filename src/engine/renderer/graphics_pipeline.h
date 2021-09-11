@@ -8,6 +8,7 @@
 
 #include "devices.h"
 #include "swap_chain.h"
+#include "buffer.h"
 
 struct _GraphicsPipeline
 {
@@ -26,10 +27,12 @@ typedef struct _GraphicsPipeline GraphicsPipeline;
  * @brief Creates an instance of the GraphicsPipeline struct.
  * @param[in] device The device the pipeline will belong to.
  * @param[in] swap_chain The swap_chain that the pipeline recieves images from.
+ * @param[in] vertex_data Vertex data to be processed.
  * @return A pointer to the initalised GraphicsPipeline struct.
 ******************************************************************************/
-GraphicsPipeline *graphics_pipeline_create(const Device *device,
-                                           const SwapChain *swap_chain);
+GraphicsPipeline *graphics_pipeline_create(const Device *restrict device,
+                                           const SwapChain *restrict swap_chain,
+                                           const VertexData *restrict vertex_data);
 
 /******************************************************************************
  * @name      graphics_pipeline_destroy()
