@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <stdarg.h>
+#include <time.h>
 
 #define ARRAY_SIZE(arr) sizeof(arr) / sizeof(arr[0])
 
@@ -55,18 +56,19 @@ void log_message(enum Verbosity verbosity,
 		"Fatal"
 	};
 
-	static const uint8_t log_verbosity_mask = 0xFF; /* Allows all verbosities to be logged to stdout */
+	static const uint8_t log_to_stdout_mask = 0xFF; /* Verbosities included in this mask will be logged to stdout. */
 	
 	const int verbosity_index = 
 		get_verbosity_index(verbosity, ARRAY_SIZE(verbosity_colours) - 1);
 	char message[256];
 	char log_message[512];
+	FILE *log_file = fopen("./logs/engine.log", "a");
 	va_list args;
 	int success = 0;
 
 	va_start(args, line);
 	
-	if (!(verbosity & log_verbosity_mask))
+	if (!(verbosity & log_to_stdout_mask))
 	{
 		return;
 	}
@@ -84,32 +86,7 @@ void log_message(enum Verbosity verbosity,
 		return;
 	}
 
-	if (verbosity & VERB_FATAL)
-	{
-		snprintf(log_message,
-		         sizeof(log_message),
-		         "%s%s(%d) %s [0x%08x]: %s%s\n",
-		         verbosity_colours[verbosity_index],
-		         file,
-		         line,
-		         verbosity_strings[verbosity_index],
-		         exit_code,
-		         message,
-		         verbosity_colours[ARRAY_SIZE(verbosity_colours) - 1]);
-	}
-	else if (verbosity & VERB_ERROR)
-	{
-		snprintf(log_message,
-		         sizeof(log_message),
-		         "%s%s(%d) %s: %s%s\n",
-		         verbosity_colours[verbosity_index],
-		         file,
-		         line,
-		         verbosity_strings[verbosity_index],
-		         message,
-		         verbosity_colours[ARRAY_SIZE(verbosity_colours) - 1]);
-	}
-	else
+	if (verbosity & log_to_stdout_mask)
 	{
 		snprintf(log_message,
 		         sizeof(log_message),
@@ -118,12 +95,25 @@ void log_message(enum Verbosity verbosity,
 		         verbosity_strings[verbosity_index],
 		         message,
 		         verbosity_colours[ARRAY_SIZE(verbosity_colours) - 1]);
+		printf(log_message);
 	}
 
-	printf(log_message);
-	if (verbosity & VERB_FATAL)
+	if (log_file != NULL)
 	{
-		exit(exit_code);
+		time_t raw_time;
+		char str_time[32];
+		
+		time(&raw_time);
+		strftime(str_time, sizeof(str_time), "%X", localtime(&raw_time));
+
+		snprintf(log_message,
+		         sizeof(log_message),
+		         "[%s] %s: %s\n",
+		         str_time,
+		         verbosity_strings[verbosity_index],
+		         message);
+		fprintf(log_file, log_message);
+		fclose(log_file);
 	}
 
 	va_end(args);
