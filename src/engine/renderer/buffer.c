@@ -100,7 +100,7 @@ VertexBuffer *vertex_buffer_create(Device *device, size_t verticies_size)
 
 	if (success != VK_SUCCESS)
 	{
-		LOG_ERROR("Failed to create vertex buffer")
+		LOG_ERROR("Failed to create vertex buffer");
 		free(buffer);
 		return NULL;
 	}

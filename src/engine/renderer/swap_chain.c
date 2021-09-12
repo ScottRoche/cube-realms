@@ -48,7 +48,7 @@ static VkPresentModeKHR swap_chain_get_present_mode(const SwapChain *swap_chain)
 		}
 	}
 	
-	LOG_WARNING("No present mode of type VK_PRESENT_MODE_MAILBOX_KHR was found")
+	LOG_WARNING("No present mode of type VK_PRESENT_MODE_MAILBOX_KHR was found");
 	return VK_PRESENT_MODE_FIFO_KHR;
 }
 
@@ -172,7 +172,7 @@ SwapChain *swap_chain_create(const Window *restrict window,
 	success = swap_chain_get_surface_format(swap_chain, &surface_format);
 	if (!success)
 	{
-		LOG_ERROR("Failed to find usable surface format")
+		LOG_ERROR("Failed to find usable surface format");
 		return NULL;
 	}
 

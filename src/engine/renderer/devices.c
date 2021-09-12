@@ -94,7 +94,7 @@ static struct DeviceSwapChainSupportDetails
 	}
 	else
 	{
-		LOG_ERROR("Failed to get device surface formats")
+		LOG_ERROR("Failed to get device surface formats");
 	}
 
 	vkGetPhysicalDeviceSurfacePresentModesKHR(*device,
@@ -113,7 +113,7 @@ static struct DeviceSwapChainSupportDetails
 	}
 	else
 	{
-		LOG_ERROR("Failed to get device surface present modes")
+		LOG_ERROR("Failed to get device surface present modes");
 	}
 
 	return details;
@@ -227,7 +227,7 @@ static int select_physical_device(Device *restrict device,
 
 	if (device_count == 0)
 	{
-		LOG_ERROR("Failed to find any devices with Vulkan support")
+		LOG_ERROR("Failed to find any devices with Vulkan support");
 		free(device);
 		return 0;
 	}
@@ -270,7 +270,7 @@ Device *device_create(const Instance *const instance,
 	success = select_physical_device(device, instance, render_surface);
 	if (success == 0)
 	{
-		LOG_ERROR("Failed to select a physical device")
+		LOG_ERROR("Failed to select a physical device");
 		free(device);
 		return NULL;
 	}
@@ -311,7 +311,7 @@ Device *device_create(const Instance *const instance,
 	                         &device->logical_device);
 	if (success != VK_SUCCESS)
 	{
-		LOG_ERROR("vkCreateDevice failed")
+		LOG_ERROR("vkCreateDevice failed");
 		free(device);
 		return NULL;
 	}

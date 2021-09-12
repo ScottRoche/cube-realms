@@ -272,7 +272,7 @@ GraphicsPipeline *graphics_pipeline_create(const Device *restrict device,
 
 	if (success != VK_SUCCESS)
 	{
-		LOG_ERROR("Failed to create pipeline layout")
+		LOG_ERROR("Failed to create pipeline layout");
 		goto render_pass_creation_fail;
 	}
 
@@ -335,7 +335,7 @@ uint8_t set_graphics_pipeline_shader(GraphicsPipeline *restrict pipeline,
 	                               module);
 	if (success != VK_SUCCESS)
 	{
-		LOG_ERROR("Failed to create shader module")
+		LOG_ERROR("Failed to create shader module");
 		free(shader_binary);
 		return 0;
 	}
@@ -368,7 +368,7 @@ uint8_t set_graphics_pipeline_shader(GraphicsPipeline *restrict pipeline,
 	/* Shader info could not be placed in the stages array */
 	if (shader_info_placed == 0)
 	{
-		LOG_ERROR("Failed to add the shader stage to the pipeline's shader stages")
+		LOG_ERROR("Failed to add the shader stage to the pipeline's shader stages");
 	}
 
 	return shader_info_placed;

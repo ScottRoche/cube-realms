@@ -86,7 +86,7 @@ static int validate_validation_layers()
 
 	if (layer_found == 0)
 	{
-		LOG_WARNING("Couldn't find any valid validation layers")
+		LOG_WARNING("Couldn't find any valid validation layers");
 	}
 
 	free(available_layers);
@@ -112,7 +112,7 @@ Instance *instance_create()
 	extensions = get_required_extensions(&extension_count);
 	if (extensions == NULL)
 	{
-		LOG_ERROR("get_required_extensions() failed to retrieve extensions")
+		LOG_ERROR("get_required_extensions() failed to retrieve extensions");
 		return NULL;
 	}
 

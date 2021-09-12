@@ -33,7 +33,6 @@ static int get_verbosity_index(enum Verbosity verbosity, size_t max_index)
 }
 
 void log_message(enum Verbosity verbosity,
-                 const unsigned int exit_code,
                  const char *restrict format,
                  const char *restrict file,
                  const unsigned int line,
@@ -102,7 +101,7 @@ void log_message(enum Verbosity verbosity,
 	{
 		time_t raw_time;
 		char str_time[32];
-		
+
 		time(&raw_time);
 		strftime(str_time, sizeof(str_time), "%X", localtime(&raw_time));
 

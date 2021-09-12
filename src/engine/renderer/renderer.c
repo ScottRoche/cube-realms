@@ -87,7 +87,7 @@ int renderer_init(const Window *window)
 	                                  &renderer.render_surface);
 	if (success != VK_SUCCESS)
 	{
-		LOG_ERROR("[%d] glfwCreateWindowSurface failed", success)
+		LOG_ERROR("[%d] glfwCreateWindowSurface failed", success);
 		goto surface_create_fail;
 	}
 
@@ -266,7 +266,7 @@ void renderer_draw()
 
 	if (image_index > renderer.command_buffer->buffer_count)
 	{
-		LOG_FATAL(2, "Aquired image index is greater than number of command buffers");
+		LOG_FATAL("Aquired image index is greater than number of command buffers");
 	}
 
 	VkSemaphore wait_semaphores[] = {image_available};
@@ -291,7 +291,7 @@ void renderer_draw()
 							VK_NULL_HANDLE);
 	if (success != VK_SUCCESS)
 	{
-		LOG_FATAL(3, "Failed to submit queue");
+		LOG_FATAL("Failed to submit queue");
 	}
 
 	/* Present */
