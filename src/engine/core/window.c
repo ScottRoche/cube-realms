@@ -10,23 +10,23 @@ static void error_callback(int error, const char *description)
 	LOG_ERROR("%d - %s", error, description);
 }
 
-Window *window_create()
+ENGINE_ERROR window_create(Window **window)
 {
-	Window *window = malloc(sizeof(Window));
+	*window = malloc(sizeof(Window));
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE); /* Only necessary now because Vulkan renderer not setup for resizing */
-	window->handle = glfwCreateWindow(800, 600, "Cube Realms", NULL, NULL);
+	(*window)->handle = glfwCreateWindow(800, 600, "Cube Realms", NULL, NULL);
 
-	if (window->handle == NULL)
+	if ((*window)->handle == NULL)
 	{
-		LOG_ERROR("Failed to create GLFWwindow");
-		return NULL;
+		free(window);
+		return ENGINE_ERROR_INIT_FAILED;
 	}
 
 	glfwSetErrorCallback(&error_callback);
 
-	return window;
+	return ENGINE_OK;
 }
 
 void window_destroy(Window *restrict window)

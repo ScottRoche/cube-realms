@@ -2,10 +2,11 @@
 #define _APPLICATION_H_
 
 #include "window.h"
+#include "debug.h"
 
 /******************************************************************************
  * @name  _Application
- * @brief An object to hold properties of an application.
+ * @brief Includes properties the application can manipulate and use.
 ******************************************************************************/
 struct _Application
 {
@@ -16,20 +17,21 @@ typedef struct _Application Application;
 /******************************************************************************
  * @name   application_initialise()
  * @brief  Setup the application to be run.
- * @return An integer value describing the success of the initialisation.
+ * @return ENGINE_ERROR value to indicate the success or communicate why the
+ *         the function failed.
 ******************************************************************************/
-int application_initialise();
+ENGINE_ERROR application_initialise();
 
 /******************************************************************************
  * @name   application_destroy()
- * @brief  Deinitialise the application.
+ * @brief  Destroy application memory and stop running the program.
  * @return void
 ******************************************************************************/
 void application_destroy();
 
 /******************************************************************************
  * @name   application_run()
- * @brief  Begin the main loop of the application.
+ * @brief  Begin the application loop.
  * @return void
 ******************************************************************************/
 void application_run();

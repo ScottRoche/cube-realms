@@ -9,41 +9,33 @@
 
 #include "renderer/renderer.h"
 
-static Application application;
+static Application application = { NULL };
 
-int application_initialise()
+ENGINE_ERROR application_initialise()
 {
-	int success = 1;
+	ENGINE_ERROR error;
 	
-	success = glfwInit();
-	if (!success)
+	if (!glfwInit())
 	{
-		LOG_ERROR("Failed to initalise GLFW");
-		goto glfw_init_fail;
+		ENGINE_LOG_RETURN_IF_ERROR(ENGINE_ERROR_INIT_FAILED,
+		                           "GLFW failed to initalise");
 	}
 
-	application.window = window_create();
-	if (application.window == NULL)
-	{
-		LOG_ERROR("Failed to create Window");
-		goto window_create_fail;
-	}
+	error = window_create(&application.window);
+	ENGINE_LOG_GOTO_IF_ERROR(error,
+	                         "Window failed to be initalised",
+	                         window_create_fail);
 
-	success = renderer_init(application.window);
-	if (!success)
-	{
-		LOG_ERROR("Failed to initalise the renderer");
-		goto renderer_init_fail;
-	}
+	error = renderer_init(application.window);
+	ENGINE_GOTO_IF_ERROR(error, renderer_init_fail)
 
-	return 1;
+	return ENGINE_OK;
 
 renderer_init_fail:
 	window_destroy(application.window);
 window_create_fail:
 	glfwTerminate();
-glfw_init_fail:
-	return 0;
+	return error;
 }
 
 void application_destroy()
