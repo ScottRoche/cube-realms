@@ -6,6 +6,8 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include "core/debug.h"
+
 #include "devices.h"
 #include "swap_chain.h"
 #include "buffer.h"
@@ -23,16 +25,19 @@ struct _GraphicsPipeline
 typedef struct _GraphicsPipeline GraphicsPipeline;
 
 /******************************************************************************
- * @name graphics_pipeline_create()
- * @brief Creates an instance of the GraphicsPipeline struct.
- * @param[in] device The device the pipeline will belong to.
- * @param[in] swap_chain The swap_chain that the pipeline recieves images from.
- * @param[in] vertex_data Vertex data to be processed.
- * @return A pointer to the initalised GraphicsPipeline struct.
+ * @name       graphics_pipeline_create()
+ * @brief      Creates an instance of the GraphicsPipeline struct.
+ * @param[out] pipeline A pointer to a pointer that stores the initalised pipeline.
+ * @param[in]  device The device the pipeline will belong to.
+ * @param[in]  swap_chain The swap_chain that the pipeline recieves images from.
+ * @param[in]  vertex_data Vertex data to be processed.
+ * @return     An ENGINE_ERROR value, if creation of the graphics pipeline was 
+ *             successful ENGINE_OK is returned.
 ******************************************************************************/
-GraphicsPipeline *graphics_pipeline_create(const Device *restrict device,
-                                           const SwapChain *restrict swap_chain,
-                                           const VertexData *restrict vertex_data);
+ENGINE_ERROR graphics_pipeline_create(GraphicsPipeline **pipeline,
+                                      const Device *restrict device,
+                                      const SwapChain *restrict swap_chain,
+                                      const VertexData *restrict vertex_data);
 
 /******************************************************************************
  * @name      graphics_pipeline_destroy()
@@ -53,13 +58,13 @@ void graphics_pipeline_destroy(GraphicsPipeline *restrict pipeline,
  * @param      shader_stage The shaders stage flag.
  * @param[out] module       A pointer to a shader module to be cleaned up after
  *                          the graphics pipeline has been created.
- * @return     An 8-bit unsigned integer to report the success or failure of
- *             the function.
+ * @return     An ENGINE_ERROR value that describes the success of setting a pipelines
+ *             shader. If successful ENGINE_OK.
 ******************************************************************************/
-uint8_t set_graphics_pipeline_shader(GraphicsPipeline *restrict pipeline,
-                                     const Device *restrict device,
-                                     const char *restrict shader_path,
-                                     VkShaderStageFlagBits shader_stage,
-                                     VkShaderModule *restrict module);
+ENGINE_ERROR set_graphics_pipeline_shader(GraphicsPipeline *restrict pipeline,
+                                          const Device *restrict device,
+                                          const char *restrict shader_path,
+                                          VkShaderStageFlagBits shader_stage,
+                                          VkShaderModule *restrict module);
 
 #endif /* _GRAPHICS_PIPELINE_H_ */

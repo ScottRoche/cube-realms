@@ -5,14 +5,15 @@
 #include <GLFW/glfw3.h>
 
 #include "core/window.h"
+#include "core/debug.h"
 
 /******************************************************************************
  * @name   renderer_init()
  * @brief  Initalises the renderer for use.
- * @return A value describing the success of the initalisation. 1 if successful
- *         0 if failed.
+ * @return A ENGINE_ERROR value to display the status of the initalisation. If
+ *         successful ENGINE_OK.
 ******************************************************************************/
-int renderer_init(const Window *window);
+ENGINE_ERROR renderer_init(const Window *window);
 
 /******************************************************************************
  * @name  renderer_deinit()

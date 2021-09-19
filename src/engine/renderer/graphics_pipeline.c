@@ -45,12 +45,12 @@ static char* read_shader_binary(const char *file, size_t *length)
  * @param[in] pipeline The pipeline the pass belongs to.
  * @param[in] device The device the pipeline belongs to.
  * @param[in] swap_chain The swap_chain that provides images to the pipeline.
- * @return    An 8-bit unsigned integer to report the success or failure of
- *            the function.
+ * @return    An ENGINE_ERROR value that describes the success of creating the
+ *            render pass. If successful ENGINE_OK is returned.
 ******************************************************************************/
-static uint8_t create_render_pass(GraphicsPipeline *pipeline,
-                                  const Device *device,
-                                  const SwapChain *swap_chain)
+static ENGINE_ERROR create_render_pass(GraphicsPipeline *pipeline,
+                                       const Device *device,
+                                       const SwapChain *swap_chain)
 {
 	VkResult success;
 
@@ -101,42 +101,45 @@ static uint8_t create_render_pass(GraphicsPipeline *pipeline,
 	                             &pipeline->render_pass);
 	if (success != VK_SUCCESS)
 	{
-		return 0;
+		ENGINE_LOG_RETURN_IF_ERROR(ENGINE_ERROR_OUT_OF_MEMORY,
+		                           "Failed to create render pass, insufficient"
+		                           "host/device memory");
 	}
 
-	return 1;
+	return ENGINE_OK;
 }
 
-GraphicsPipeline *graphics_pipeline_create(const Device *restrict device,
-                                           const SwapChain *restrict swap_chain,
-                                           const VertexData *restrict vertex_data)
+ENGINE_ERROR graphics_pipeline_create(GraphicsPipeline **pipeline,
+                                      const Device *restrict device,
+                                      const SwapChain *restrict swap_chain,
+                                      const VertexData *restrict vertex_data)
 {
-	GraphicsPipeline *pipeline = malloc(sizeof(GraphicsPipeline));
+	*pipeline = malloc(sizeof(GraphicsPipeline));
 	VkShaderModule vertex_module = NULL;
 	VkShaderModule fragment_module = NULL;
+	ENGINE_ERROR error;
 	VkResult success;
 
-	pipeline->stage_count = 2;
-	pipeline->shader_stages =
-		calloc(pipeline->stage_count, sizeof(VkPipelineShaderStageCreateInfo));
-	pipeline->last_stage = 0;
+	(*pipeline)->stage_count = 2;
+	(*pipeline)->shader_stages =
+		calloc((*pipeline)->stage_count, sizeof(VkPipelineShaderStageCreateInfo));
+	(*pipeline)->last_stage = 0;
 
-	set_graphics_pipeline_shader(pipeline,
-	                             device,
-	                             "./assets/vert.spv",
-	                             VK_SHADER_STAGE_VERTEX_BIT,
-	                             &vertex_module);
-	set_graphics_pipeline_shader(pipeline,
-	                             device,
-	                             "./assets/frag.spv",
-	                             VK_SHADER_STAGE_FRAGMENT_BIT,
-	                             &fragment_module);
+	error = set_graphics_pipeline_shader(*pipeline,
+	                                     device,
+	                                     "./assets/vert.spv",
+	                                     VK_SHADER_STAGE_VERTEX_BIT,
+	                                     &vertex_module);
 
-	if (vertex_module == NULL || fragment_module == NULL)
-	{
-		goto shader_create_fail;
-		return 0;
-	}
+	ENGINE_GOTO_IF_ERROR(error, shader_create_fail);
+
+	error = set_graphics_pipeline_shader(*pipeline,
+	                                     device,
+	                                     "./assets/frag.spv",
+	                                     VK_SHADER_STAGE_FRAGMENT_BIT,
+	                                     &fragment_module);
+
+	ENGINE_GOTO_IF_ERROR(error, shader_create_fail);
 
 	VkPipelineVertexInputStateCreateInfo vertex_input_info = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
@@ -230,24 +233,25 @@ GraphicsPipeline *graphics_pipeline_create(const Device *restrict device,
 	success = vkCreatePipelineLayout(device->logical_device,
 	                       &layout,
 	                       NULL,
-	                       &pipeline->layout);
+	                       &(*pipeline)->layout);
 
 	if (success != VK_SUCCESS)
 	{
-		LOG_ERROR("Failed to create pipeline layout");
-		goto pipeline_layout_create_fail;
+		error = ENGINE_ERROR_OUT_OF_MEMORY;
+		ENGINE_LOG_GOTO_IF_ERROR(error,
+		                         "Failed to create pipeline layout, insufficient"
+		                         "host/device memory",
+		                         pipeline_layout_create_fail);
 	}
 
-	if (!create_render_pass(pipeline, device, swap_chain))
-	{
-		LOG_ERROR("Failed to create render pass");
-		goto render_pass_creation_fail;
-	}
+
+	error = create_render_pass(*pipeline, device, swap_chain);
+	ENGINE_GOTO_IF_ERROR(error, render_pass_init_fail);
 
 	VkGraphicsPipelineCreateInfo pipeline_info = {
 		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
 		.stageCount = 2,
-		.pStages = pipeline->shader_stages,
+		.pStages = (*pipeline)->shader_stages,
 		.pVertexInputState = &vertex_input_info,
 		.pInputAssemblyState = &input_assembly_info,
 		.pViewportState = &viewport_state,
@@ -256,8 +260,8 @@ GraphicsPipeline *graphics_pipeline_create(const Device *restrict device,
 		.pDepthStencilState = NULL,
 		.pColorBlendState = &color_blend,
 		.pDynamicState = NULL,
-		.layout = pipeline->layout,
-		.renderPass = pipeline->render_pass,
+		.layout = (*pipeline)->layout,
+		.renderPass = (*pipeline)->render_pass,
 		.subpass = 0,
 		.basePipelineHandle = VK_NULL_HANDLE,
 		.basePipelineIndex = -1
@@ -268,31 +272,42 @@ GraphicsPipeline *graphics_pipeline_create(const Device *restrict device,
 	                                    1,
 	                                    &pipeline_info,
 	                                    NULL,
-	                                    &pipeline->handle);
+	                                    &(*pipeline)->handle);
 
 	if (success != VK_SUCCESS)
 	{
-		LOG_ERROR("Failed to create pipeline layout");
-		goto render_pass_creation_fail;
+		if (success == VK_PIPELINE_COMPILE_REQUIRED_EXT)
+		{
+			LOG_WARNING("Pipeline compilation suppressed");
+		}
+		else if (success == VK_ERROR_OUT_OF_HOST_MEMORY
+		         || success == VK_ERROR_OUT_OF_DEVICE_MEMORY)
+		{
+			error = ENGINE_ERROR_OUT_OF_MEMORY;
+			ENGINE_LOG_GOTO_IF_ERROR(error,
+									"Failed to create pipeline layout, insufficient"
+									"host/device memory",
+									render_pass_init_fail);
+		}
 	}
 
 	vkDestroyShaderModule(device->logical_device, vertex_module, NULL);
 	vkDestroyShaderModule(device->logical_device, fragment_module, NULL);
 
-	return pipeline;
+	return ENGINE_OK;
 
-render_pass_creation_fail:
-	vkDestroyPipelineLayout(device->logical_device, pipeline->layout, NULL);
+render_pass_init_fail:
+	vkDestroyPipelineLayout(device->logical_device, (*pipeline)->layout, NULL);
 
 pipeline_layout_create_fail:
 	vkDestroyShaderModule(device->logical_device, vertex_module, NULL);
 	vkDestroyShaderModule(device->logical_device, fragment_module, NULL);
 
 shader_create_fail:
-	free(pipeline->shader_stages);
-	free(pipeline);
+	free((*pipeline)->shader_stages);
+	free(*pipeline);
 
-	return NULL;
+	return error;
 }
 
 void graphics_pipeline_destroy(GraphicsPipeline *restrict pipeline,
@@ -305,22 +320,21 @@ void graphics_pipeline_destroy(GraphicsPipeline *restrict pipeline,
 	free(pipeline);
 }
 
-uint8_t set_graphics_pipeline_shader(GraphicsPipeline *restrict pipeline,
-                                     const Device *restrict device,
-                                     const char *restrict shader_path,
-                                     VkShaderStageFlagBits shader_stage,
-                                     VkShaderModule *restrict module)
+ENGINE_ERROR set_graphics_pipeline_shader(GraphicsPipeline *restrict pipeline,
+                                          const Device *restrict device,
+                                          const char *restrict shader_path,
+                                          VkShaderStageFlagBits shader_stage,
+                                          VkShaderModule *restrict module)
 {
 	size_t shader_length = 0;
 	uint32_t *shader_binary = (uint32_t*)read_shader_binary(shader_path,
 	                                                        &shader_length);
 	VkResult success;
-	uint8_t shader_info_placed = 0;
 
 	if (shader_binary == NULL)
 	{
 		free(shader_binary);
-		return 0;
+		return ENGINE_ERROR_INIT_FAILED;
 	}
 
 	VkShaderModuleCreateInfo module_info = {
@@ -335,9 +349,20 @@ uint8_t set_graphics_pipeline_shader(GraphicsPipeline *restrict pipeline,
 	                               module);
 	if (success != VK_SUCCESS)
 	{
-		LOG_ERROR("Failed to create shader module");
 		free(shader_binary);
-		return 0;
+
+		if (success == VK_ERROR_OUT_OF_HOST_MEMORY
+		    || success == VK_ERROR_OUT_OF_DEVICE_MEMORY)
+		{
+			ENGINE_LOG_RETURN_IF_ERROR(ENGINE_ERROR_OUT_OF_MEMORY,
+			                           "Failed to create shader module, insufficent "
+			                           "host/device memory");
+		}
+		else
+		{
+			ENGINE_LOG_RETURN_IF_ERROR(ENGINE_ERROR_INIT_FAILED,
+			                           "One or more shaders failed to compile or link");
+		}
 	}
 
 	free(shader_binary);
@@ -360,16 +385,10 @@ uint8_t set_graphics_pipeline_shader(GraphicsPipeline *restrict pipeline,
 			}
 
 			pipeline->shader_stages[i] = stage_info;
-			shader_info_placed = 1;
-			break;
+			return ENGINE_OK;
 		}
 	}
 
-	/* Shader info could not be placed in the stages array */
-	if (shader_info_placed == 0)
-	{
-		LOG_ERROR("Failed to add the shader stage to the pipeline's shader stages");
-	}
-
-	return shader_info_placed;
+	LOG_ERROR("Failed to add the shader stage to the pipeline's shader stages");
+	return ENGINE_ERROR_INIT_FAILED;
 }

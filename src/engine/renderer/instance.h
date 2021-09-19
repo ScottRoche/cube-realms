@@ -4,9 +4,11 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include "core/debug.h"
+
 /******************************************************************************
  * @name  _Instance
- * @brief An object to hold properties associated with an application.
+ * @brief Stores a VKInstance.
 ******************************************************************************/
 struct _Instance
 {
@@ -15,17 +17,19 @@ struct _Instance
 typedef struct _Instance Instance;
 
 /******************************************************************************
- * @name   instance_create()
- * @brief  Creates an Instance object which encapsulates a VkInstance.
- * @return A pointer to the heap allocate Instance.
+ * @name      instance_create()
+ * @brief     Creates an Instance struct that will handle VkInstance operations.
+ * @param[out] instance A pointer to a pointer which will store the address of
+ *                      of the created instance.
+ * @return    A value of ENGINE_ERROR if successful ENGINE_OK.
 ******************************************************************************/
-Instance *instance_create();
+ENGINE_ERROR instance_create(Instance **instance);
 
 /******************************************************************************
- * @name   instance_destroy()
- * @brief  Destroys an Instance object deinitalising it, and freeing memory 
- *         associated with it.
- * @return void
+ * @name      instance_destroy()
+ * @brief     Destroys an specified Instance
+ * @param[in] instance The instance to destroyed.
+ * @return    void
 ******************************************************************************/
 void instance_destroy(Instance *instance);
 

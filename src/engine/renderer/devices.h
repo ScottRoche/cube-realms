@@ -4,6 +4,8 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include "core/debug.h"
+
 #include "instance.h"
 
 /******************************************************************************
@@ -34,7 +36,7 @@ struct QueueFamilyIndicies
 
 /******************************************************************************
  * @name  _Device
- * @brief A logical represenation of a physical device.
+ * @brief A struct to represents a graphics device.
 ******************************************************************************/
 struct _Device
 {
@@ -50,15 +52,19 @@ struct _Device
 typedef struct _Device Device;
 
 /******************************************************************************
- * @name        device_create()
- * @brief       Creates a Device object which holds properties for the physical
- *              and logical device.
- * @param[in]   instance The vulkan instance.
- * @param[in]   render_surface 
- * @return      A pointer to a Device struct.
+ * @name       device_create()
+ * @brief      Creates a Device object which holds properties for the physical
+ *             and logical device.
+ * @param[out] device         A pointer to a pointer which is set to store the address of
+ *                            the created device struct.
+ * @param[in]  instance       The vulkan instance.
+ * @param[in]  render_surface The surface that will be used to draw to.
+ * @return     An ENGINE_ERROR value to describe the success of the device struct
+ *             creation and initalisation.
 ******************************************************************************/
-Device *device_create(const Instance *const instance,
-                      const VkSurfaceKHR *render_surface);
+ENGINE_ERROR device_create(Device **restrict device,
+                           const Instance *const instance,
+                           const VkSurfaceKHR *restrict render_surface);
 
 /******************************************************************************
  * @name        device_destroy()

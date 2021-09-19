@@ -40,7 +40,7 @@ static struct Renderer renderer;
 static VkSemaphore image_available;
 static VkSemaphore render_finished;
 
-static uint8_t semaphore_create()
+static ENGINE_ERROR semaphore_create()
 {
 	VkResult success;
 	VkSemaphoreCreateInfo semaphore_info = {
@@ -51,10 +51,12 @@ static uint8_t semaphore_create()
 	                            &semaphore_info,
 	                            NULL,
 	                            &image_available);
+
 	if (success != VK_SUCCESS)
 	{
-		LOG_ERROR("Failed to create image_available semaphore.");
-		return 0;
+		ENGINE_LOG_RETURN_IF_ERROR(ENGINE_ERROR_OUT_OF_MEMORY,
+		                           "Failed to initalise semaphore insufficient"
+		                           "host/device memory");
 	}
 
 	success = vkCreateSemaphore(renderer.device->logical_device,
@@ -63,60 +65,82 @@ static uint8_t semaphore_create()
 	                            &render_finished);
 	if (success != VK_SUCCESS)
 	{
-		LOG_ERROR("Failed to create render_finished semaphore.");
-		return 0;
+		ENGINE_LOG_RETURN_IF_ERROR(ENGINE_ERROR_OUT_OF_MEMORY,
+		                           "Failed to initalise semaphore insufficient"
+		                           "host/device memory");
 	}
 
-	return 1;
+	return ENGINE_OK;
 }
 
-int renderer_init(const Window *window)
+static ENGINE_ERROR create_framebuffers(Framebuffer **framebuffer_array,
+                                        uint32_t image_count)
 {
-	VkResult success;
-
-	renderer.instance = instance_create();
-	if (renderer.instance == NULL)
+	for (uint32_t i = 0; i < image_count; i++)
 	{
-		goto instance_create_fail;
+		framebuffer_array[i] = framebuffer_create(renderer.device,
+		                                          renderer.graphics_pipeline,
+		                                          &renderer.swap_chain->image_views[i],
+		                                          &renderer.swap_chain->extent);
+
+		if (framebuffer_array[i] == NULL)
+		{
+			for (uint32_t j = 0; framebuffer_array[j] != NULL; j++)
+			{
+				framebuffer_destroy(framebuffer_array[j], renderer.device);
+			}
+
+			return ENGINE_ERROR_INIT_FAILED;
+		}
 	}
+	return ENGINE_OK;
+}
+
+ENGINE_ERROR renderer_init(const Window *window)
+{
+	ENGINE_ERROR error = ENGINE_OK;
+	VkResult surface_status = 0;
+
+	error = instance_create(&renderer.instance);
+	ENGINE_LOG_RETURN_IF_ERROR(error, "Vulkan instance failed to initalise");
 
 	/* Should we be doing this here? Maybe not. */
-	success = glfwCreateWindowSurface(renderer.instance->handle,
-	                                  window->handle,
-	                                  NULL,
-	                                  &renderer.render_surface);
-	if (success != VK_SUCCESS)
+	surface_status = glfwCreateWindowSurface(renderer.instance->handle,
+	                                         window->handle,
+	                                         NULL,
+	                                         &renderer.render_surface);
+	if (surface_status != VK_SUCCESS)
 	{
-		LOG_ERROR("[%d] glfwCreateWindowSurface failed", success);
-		goto surface_create_fail;
+		instance_destroy(renderer.instance);
+		ENGINE_LOG_RETURN_IF_ERROR(ENGINE_ERROR_INIT_FAILED,
+		                           "Failed to create Vulkan surface for Window");
 	}
 
-	renderer.device = device_create(renderer.instance, &renderer.render_surface);
-	if (renderer.device == NULL)
-	{
-		goto device_create_fail;
-	}
+	error = device_create(&renderer.device,
+	                      renderer.instance,
+	                      &renderer.render_surface);
 
-	renderer.swap_chain = swap_chain_create(window,
-	                                        renderer.device,
-	                                        &renderer.render_surface);
-	if (renderer.swap_chain == NULL)
-	{
-		goto swap_chain_create_fail;
-	}
+	ENGINE_GOTO_IF_ERROR(error, device_init_fail);
 
+	error = swap_chain_create(&renderer.swap_chain,
+	                          window,
+	                          renderer.device,
+	                          &renderer.render_surface);
+
+	ENGINE_GOTO_IF_ERROR(error, swap_chain_init_fail);
+
+	/* Won't be here in the future */
 	float verticies[] = {
 		 0.0f, -0.5f, 1.0f, 0.0f, 0.0f,
 		 0.5f,  0.5f, 0.0f, 1.0f, 0.0f,
 		-0.5f,  0.5f, 0.0f, 0.0f, 1.0f
 	};
 
-	/* Does this really need a create function if it never needs to be destroyed?? */
 	VertexData *vertex_data =
 		vertex_data_create(verticies, sizeof(verticies) / sizeof(float));
 
 	renderer.vbuffer = vertex_buffer_create(renderer.device,
-	                                                   sizeof(verticies));
+	                                        sizeof(verticies));
 
 	void *data;
 	vkMapMemory(renderer.device->logical_device,
@@ -129,98 +153,77 @@ int renderer_init(const Window *window)
 	vkUnmapMemory(renderer.device->logical_device,
 	              renderer.vbuffer->buffer_memory);
 
-	renderer.graphics_pipeline = graphics_pipeline_create(renderer.device,
-	                                                      renderer.swap_chain,
-	                                                      vertex_data);
-	if (renderer.graphics_pipeline == NULL)
-	{
-		goto graphics_pipeline_create_fail;
-	}
+	error = graphics_pipeline_create(&renderer.graphics_pipeline,
+	                                 renderer.device,
+	                                 renderer.swap_chain,
+	                                 vertex_data);
+
+	ENGINE_GOTO_IF_ERROR(error, graphics_pipeline_init_fail);
 
 	renderer.framebuffers =
 		malloc(sizeof(Framebuffer*) * renderer.swap_chain->image_count);
-	for (uint32_t i = 0; i < renderer.swap_chain->image_count; i++)
-	{
-		renderer.framebuffers[i] = framebuffer_create(renderer.device,
-		                                              renderer.graphics_pipeline,
-		                                              &renderer.swap_chain->image_views[i],
-		                                              &renderer.swap_chain->extent);
 
-		if (renderer.framebuffers[i] == NULL)
-		{
-			for (uint32_t j = 0; i <= renderer.framebuffer_count; j++)
-			{
-				framebuffer_destroy(renderer.framebuffers[j], renderer.device);
-			}
-			goto framebuffer_create_fail;
-		}
+	error = create_framebuffers(renderer.framebuffers,
+	                            renderer.swap_chain->image_count);
+	ENGINE_LOG_GOTO_IF_ERROR(error,
+	                         "Failed to intialise all framebuffers",
+	                         framebuffer_init_fail);
 
-		renderer.framebuffer_count++;
-	}
+	error = command_pool_create(&renderer.command_pool, renderer.device);
+	ENGINE_GOTO_IF_ERROR(error, command_pool_init_fail);
 
-	renderer.command_pool = command_pool_create(renderer.device);
-	if (renderer.command_pool == NULL)
-	{
-		goto command_pool_create_fail;
-	}
-
-	renderer.command_buffer = command_buffer_create(renderer.command_pool,
-	                                                renderer.device,
-	                                                renderer.graphics_pipeline,
-	                                                renderer.swap_chain,
-	                                                renderer.framebuffers,
-	                                                renderer.vbuffer,
-	                                                sizeof(verticies));
-
-	if (renderer.command_buffer == NULL)
-	{
-		goto command_buffer_create_fail;
-	}
-
-	if (!semaphore_create())
-	{
-		goto semaphore_create_fail;
-	}
+	error = command_buffer_create(&renderer.command_buffer,
+	                              renderer.command_pool,
+	                              renderer.device,
+	                              renderer.graphics_pipeline,
+	                              renderer.swap_chain,
+	                              renderer.framebuffers,
+	                              renderer.vbuffer,
+	                              sizeof(verticies));
 
 	vertex_data_destroy(vertex_data);
 
-	return 1;
+	ENGINE_LOG_GOTO_IF_ERROR(error,
+	                         "Failed to initalise command buffer",
+	                         command_buffer_init_fail);
 
-semaphore_create_fail:
+	error = semaphore_create();
+	ENGINE_GOTO_IF_ERROR(error, semaphore_init_fail);
+
+	return ENGINE_OK;
+
+semaphore_init_fail:
 	command_buffer_destroy(renderer.command_buffer,
 	                       renderer.command_pool,
 	                       renderer.device);
 	command_pool_destroy(renderer.command_pool, renderer.device);
 
-command_buffer_create_fail:
+command_buffer_init_fail:
 	command_pool_destroy(renderer.command_pool, renderer.device);
 
-command_pool_create_fail:
+command_pool_init_fail:
 	for (uint32_t i = 0; i < renderer.swap_chain->image_count; i++)
 	{
 		framebuffer_destroy(renderer.framebuffers[i], renderer.device);
 	}
 
-framebuffer_create_fail:
+framebuffer_init_fail:
 	free(renderer.framebuffers);
 	graphics_pipeline_destroy(renderer.graphics_pipeline, renderer.device);
 
-graphics_pipeline_create_fail:
+graphics_pipeline_init_fail:
+	vertex_data_destroy(vertex_data);
 	swap_chain_destroy(renderer.swap_chain, renderer.device);
 
-swap_chain_create_fail:
+swap_chain_init_fail:
 	device_destroy(renderer.device);
 
-device_create_fail:
+device_init_fail:
 	vkDestroySurfaceKHR(renderer.instance->handle,
 	                    renderer.render_surface,
 	                    NULL);
 
-surface_create_fail:
-	instance_destroy(renderer.instance);
-
-instance_create_fail:
-	return 0;
+	return error;
 }
 
 void renderer_deinit()

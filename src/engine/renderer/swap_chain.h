@@ -26,16 +26,20 @@ struct _SwapChain
 typedef struct _SwapChain SwapChain;
 
 /******************************************************************************
- * @name      swap_chain_create()
- * @brief     Creates a swap chain.
- * @param[in] window The window that the swap chain images will be created for.
- * @param[in] device The device that the swap chain belongs to.
- * @param[in] surface The surface that images will be presented to.
- * @return    A pointer to a SwapChain object.
+ * @name       swap_chain_create()
+ * @brief      Creates a swap chain.
+ * @param[out] swap_chain A pointer to pointer of a SwapChain struct that will be
+ *                        set.
+ * @param[in]  window     The window that the swap chain images will be created for.
+ * @param[in]  device     The device that the swap chain belongs to.
+ * @param[in]  surface    The surface that images will be presented to.
+ * @return     An ENGINE_ERROR value. If the swap chain creation/initalisation was
+ *             successful ENGINE_OK.
 ******************************************************************************/
-SwapChain *swap_chain_create(const Window *restrict window,
-                             const Device *restrict device,
-                             const VkSurfaceKHR *restrict surface);
+ENGINE_ERROR swap_chain_create(SwapChain **swap_chain,
+                               const Window *restrict window,
+                               const Device *restrict device,
+                               const VkSurfaceKHR *restrict surface);
 
 /******************************************************************************
  * @name      swap_chain_destroy()

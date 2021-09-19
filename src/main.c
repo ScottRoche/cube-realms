@@ -2,17 +2,17 @@
 #include <stdlib.h>
 
 #include "engine/core/application.h"
+#include "engine/core/debug.h"
 
 int main(int argc, char **argv)
 {
-	int success;
+	ENGINE_ERROR error;
 	
-	success = application_initialise();
-	if (success)
-	{
-		application_run();
-		application_destroy();
-	}
+	error = application_initialise();
+	ENGINE_RETURN_IF_ERROR(error);
 
-	return success ? EXIT_SUCCESS : EXIT_FAILURE;
+	application_run();
+	application_destroy();
+
+	return EXIT_SUCCESS;
 }

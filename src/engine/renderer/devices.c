@@ -94,7 +94,7 @@ static struct DeviceSwapChainSupportDetails
 	}
 	else
 	{
-		LOG_ERROR("Failed to get device surface formats");
+		LOG_WARNING("Failed to get device surface formats");
 	}
 
 	vkGetPhysicalDeviceSurfacePresentModesKHR(*device,
@@ -113,7 +113,7 @@ static struct DeviceSwapChainSupportDetails
 	}
 	else
 	{
-		LOG_ERROR("Failed to get device surface present modes");
+		LOG_WARNING("Failed to get device surface present modes");
 	}
 
 	return details;
@@ -126,9 +126,6 @@ static struct DeviceSwapChainSupportDetails
  * @param[in]   device   The device to find the queue families in.
  * @param[in]   indicies The struct to store the indicies of each queue family.
  * @return      void
- * 
- * TODO: Should be abstracted out of this file to be with theQueueFamilyIndicies
- * struct when that happens.
 ******************************************************************************/
 static void find_queue_family(VkPhysicalDevice *device,
                               struct QueueFamilyIndicies *indicies,
@@ -172,17 +169,15 @@ static void find_queue_family(VkPhysicalDevice *device,
  * @name        suitable_device_found()
  * @brief       Checks a device for required extensions and queue families.
  * @param[in]   device The device to be check for suitability.
- * @return      An integer to represent the success of the check. If 1 is returned
- *              it was successful, else the device wasn't suitable.
+ * @return      A ENGINE_ERROR value. If a suitable device is found ENGINE_OK.
 ******************************************************************************/
-static int suitable_device_found(VkPhysicalDevice *device,
-                                 struct QueueFamilyIndicies *queue_family_indicies,
-                                 const VkSurfaceKHR *render_surface,
-                                 struct DeviceSwapChainSupportDetails *details)
+static ENGINE_ERROR suitable_device_found(VkPhysicalDevice *device,
+                                          struct QueueFamilyIndicies *queue_family_indicies,
+                                          const VkSurfaceKHR *render_surface,
+                                          struct DeviceSwapChainSupportDetails *details)
 {
 	VkPhysicalDeviceProperties device_properties;
 	struct QueueFamilyIndicies indicies = {-1, -1};
-	uint8_t adequate_swap_chain_support;
 
 	vkGetPhysicalDeviceProperties(*device, &device_properties);
 
@@ -190,20 +185,20 @@ static int suitable_device_found(VkPhysicalDevice *device,
 
 	if (!check_device_extension_support(device))
 	{
-		LOG_ERROR("Failed to find required device extensions");
-		return 0;
+		ENGINE_LOG_RETURN_IF_ERROR(ENGINE_ERROR_INVALID_DEVICE,
+		                           "Failed to find device with required extensions");
 	}
 
 	*details = device_query_swap_chain_support_details(device, render_surface);
-	adequate_swap_chain_support = details->formats != NULL && details->present_modes != NULL;
 
-	if (indicies.graphics_family != -1 && indicies.present_family != -1)
+	if (indicies.graphics_family != -1 && indicies.present_family != -1
+	    && details->formats != NULL && details->present_modes != NULL)
 	{
 		*queue_family_indicies = indicies;
-		return adequate_swap_chain_support;
+		return ENGINE_OK;
 	}
 
-	return 0;
+	return ENGINE_ERROR_INVALID_DEVICE;
 }
 
 /******************************************************************************
@@ -211,25 +206,22 @@ static int suitable_device_found(VkPhysicalDevice *device,
  * @brief     Selects the physical device to be used.
  * @param[in] device   The device object in which will store the physical device.
  * @param[in] instance The vulkan instance.
- * @result    An integer value representitive of the success. 1 if successful,
- *            0 if the selection failed.
+ * @result    An ENGINE_ERROR value. If a physical device is selected ENGINE_OK.
 ******************************************************************************/
-static int select_physical_device(Device *restrict device,
-                                  const Instance *restrict instance,
-                                  const VkSurfaceKHR *render_surface)
+static ENGINE_ERROR select_physical_device(Device *restrict device,
+                                           const Instance *restrict instance,
+                                           const VkSurfaceKHR *render_surface)
 {
 	VkPhysicalDevice *devices;
 	uint32_t device_count = 0;
 	uint32_t i;
-	int success;
+	ENGINE_ERROR error;
 
 	vkEnumeratePhysicalDevices(instance->handle, &device_count, NULL);
 
 	if (device_count == 0)
 	{
-		LOG_ERROR("Failed to find any devices with Vulkan support");
-		free(device);
-		return 0;
+		ENGINE_RETURN_IF_ERROR(ENGINE_ERROR_INVALID_DEVICE);
 	}
 
 	devices = malloc(sizeof(VkPhysicalDevice) * device_count);
@@ -237,55 +229,57 @@ static int select_physical_device(Device *restrict device,
 	                           &device_count,
 	                           devices);
 
+	ENGINE_ASSERT(device != NULL);
+
 	for (i = 0; i < device_count; i++)
 	{
 		struct DeviceSwapChainSupportDetails swap_chain_support;
-		success = suitable_device_found(&devices[i],
+		error = suitable_device_found(&devices[i],
 		                                &device->queue_family_indicies,
 		                                render_surface,
 		                                &swap_chain_support);
-		if (success)
+		if (error == ENGINE_OK)
 		{
 			device->physical_device = devices[i];
 			device->swap_chain_details = swap_chain_support;
 			free(devices);
-			return 1;
+			return ENGINE_OK;
 		}
 	}
 
 	free(devices);
-	return 0;
+	return ENGINE_ERROR_INVALID_DEVICE;
 }
 
-Device *device_create(const Instance *const instance,
-                      const VkSurfaceKHR *render_surface)
+ENGINE_ERROR device_create(Device **restrict device,
+                           const Instance *const instance,
+                           const VkSurfaceKHR *restrict render_surface)
 {
-	Device *device = malloc(sizeof(Device));
-	uint32_t success;
+	ENGINE_ERROR error;
 	float queue_priority = 1.0f;
 
-	device->queue_family_indicies.graphics_family = -1;
-	device->queue_family_indicies.present_family = -1;
+	*device = malloc(sizeof(Device));
+	(*device)->queue_family_indicies.graphics_family = -1;
+	(*device)->queue_family_indicies.present_family = -1;
 
-	success = select_physical_device(device, instance, render_surface);
-	if (success == 0)
+	error = select_physical_device(*device, instance, render_surface);
+	if (error != ENGINE_OK)
 	{
-		LOG_ERROR("Failed to select a physical device");
-		free(device);
-		return NULL;
+		free(*device);
+		ENGINE_LOG_RETURN_IF_ERROR(error, "Failed to find valid physical device.");
 	}
 
 	// Create a logical device
 	VkDeviceQueueCreateInfo graphics_queue_info = {
 		.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-		.queueFamilyIndex = (uint32_t)device->queue_family_indicies.graphics_family,
+		.queueFamilyIndex = (uint32_t)(*device)->queue_family_indicies.graphics_family,
 		.queueCount = 1,
 		.pQueuePriorities = &queue_priority
 	};
 
 	VkDeviceQueueCreateInfo present_queue_info = {
 		.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-		.queueFamilyIndex = (uint32_t)device->queue_family_indicies.present_family,
+		.queueFamilyIndex = (uint32_t)(*device)->queue_family_indicies.present_family,
 		.queueCount = 1,
 		.pQueuePriorities = &queue_priority
 	};
@@ -305,28 +299,51 @@ Device *device_create(const Instance *const instance,
 		.enabledLayerCount = 0
 	};
 
-	success = vkCreateDevice(device->physical_device,
-	                         &device_info,
-	                         NULL,
-	                         &device->logical_device);
+	VkResult success = vkCreateDevice((*device)->physical_device,
+	                                  &device_info,
+	                                  NULL,
+	                                  &(*device)->logical_device);
 	if (success != VK_SUCCESS)
 	{
-		LOG_ERROR("vkCreateDevice failed");
-		free(device);
-		return NULL;
+		free(*device);
+		*device = NULL;
+
+		if (success & VK_ERROR_OUT_OF_HOST_MEMORY
+			|| success == VK_ERROR_OUT_OF_DEVICE_MEMORY)
+		{
+			ENGINE_LOG_RETURN_IF_ERROR(ENGINE_ERROR_OUT_OF_MEMORY,
+			                           "Failed to create device, insufficient"
+			                           "host/device memory");
+		}
+		else if (success == VK_ERROR_FEATURE_NOT_PRESENT
+		         || success == VK_ERROR_EXTENSION_NOT_PRESENT)
+		{
+			ENGINE_LOG_RETURN_IF_ERROR(ENGINE_ERROR_INIT_FAILED,
+			                           "Failed to create instance, feature/extension"
+			                           "not found");
+		}
+		else if (success == VK_ERROR_INITIALIZATION_FAILED)
+		{
+			ENGINE_LOG_RETURN_IF_ERROR(ENGINE_ERROR_INIT_FAILED,
+			                           "Failed to initalise device");
+		}
+		else if (success == VK_ERROR_DEVICE_LOST)
+		{
+			ENGINE_LOG_RETURN_IF_ERROR(ENGINE_ERROR_DEVICE_LOST, "Device was lost!");
+		}
 	}
 
-	vkGetDeviceQueue(device->logical_device,
-	                 device->queue_family_indicies.graphics_family,
+	vkGetDeviceQueue((*device)->logical_device,
+	                 (*device)->queue_family_indicies.graphics_family,
 	                 0,
-	                 &device->graphics_queue);
+	                 &(*device)->graphics_queue);
 
-	vkGetDeviceQueue(device->logical_device,
-	                 device->queue_family_indicies.present_family,
+	vkGetDeviceQueue((*device)->logical_device,
+	                 (*device)->queue_family_indicies.present_family,
 	                 0,
-	                 &device->present_queue);
+	                 &(*device)->present_queue);
 
-	return device;
+	return ENGINE_OK;
 }
 
 void device_destroy(Device *device)

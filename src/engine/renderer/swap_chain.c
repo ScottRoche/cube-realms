@@ -11,11 +11,11 @@
  * @param[in]  swap_chain     The swap chain to query the formats of.
  * @param[out] surface_format The format that was selected, or in case of failure
  *                            this will be set to NULL.
- * @return     An integer value to represent the success in findin a valid
- *             surface format.
+ * @return     An ENGINE_ERROR value will be returned. If a format was successfully
+ *             found ENGINE_OK.
 ******************************************************************************/
-static uint8_t swap_chain_get_surface_format(const SwapChain *swap_chain,
-                                             VkSurfaceFormatKHR *surface_format)
+static ENGINE_ERROR swap_chain_get_surface_format(const SwapChain *swap_chain,
+                                                  VkSurfaceFormatKHR *surface_format)
 {
 	for(int i = 0; i < swap_chain->support.formats_count; i++)
 	{
@@ -24,12 +24,12 @@ static uint8_t swap_chain_get_surface_format(const SwapChain *swap_chain,
 		    && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
 		{
 			*surface_format = format;
-			return 1;
+			return ENGINE_OK;
 		}
 	}
 	
 	surface_format = NULL;
-	return 0;
+	return ENGINE_ERROR_INVALID_SWAP_CHAIN_FORMAT;
 }
 
 /******************************************************************************
@@ -48,7 +48,8 @@ static VkPresentModeKHR swap_chain_get_present_mode(const SwapChain *swap_chain)
 		}
 	}
 	
-	LOG_WARNING("No present mode of type VK_PRESENT_MODE_MAILBOX_KHR was found");
+	LOG_WARNING("No present mode of type VK_PRESENT_MODE_MAILBOX_KHR was found."
+	             " Using VK_PRESENT_MODE_FIFO_KHR instead.");
 	return VK_PRESENT_MODE_FIFO_KHR;
 }
 
@@ -106,10 +107,10 @@ static VkExtent2D swap_chain_get_extent(const SwapChain *swap_chain,
  * @param[in] swap_chain The swap chain to retrieve the images from and the
  *                       image views to be stored in.
  * @param[in] device     The device to create the image views for.
- * @return    An integer to determine the success of this function, 1 if successful
- *            0 if unsuccessful.
+ * @return    An ENGINE_ERROR value. If swap chain image views were created
+ *            successfully ENGINE_OK is returned.
 ******************************************************************************/
-static uint32_t swap_chain_image_views_create(SwapChain *restrict swap_chain,
+static ENGINE_ERROR swap_chain_image_views_create(SwapChain *restrict swap_chain,
                                               const Device *restrict device)
 {
 	VkImageView *image_views = calloc(swap_chain->image_count, sizeof(VkImageView));
@@ -147,43 +148,45 @@ static uint32_t swap_chain_image_views_create(SwapChain *restrict swap_chain,
 				vkDestroyImageView(device->logical_device, image_views[j], NULL);
 			}
 			free(image_views);
-			return 0;
+			return ENGINE_ERROR_INIT_FAILED;
 		}
 	}
 
 	swap_chain->image_views = image_views;
-	return 1;
+	return ENGINE_OK;
 }
 
-SwapChain *swap_chain_create(const Window *restrict window,
-                             const Device *restrict device,
-                             const VkSurfaceKHR *restrict surface)
+ENGINE_ERROR swap_chain_create(SwapChain **swap_chain,
+                               const Window *restrict window,
+                               const Device *restrict device,
+                               const VkSurfaceKHR *restrict surface)
 {
-	SwapChain *swap_chain = malloc(sizeof(SwapChain));
+	*swap_chain = malloc(sizeof(SwapChain));
 	VkSurfaceFormatKHR surface_format;
 	VkPresentModeKHR present_mode;
 	VkExtent2D swap_chain_extent;
 	uint32_t image_count = 0;
 	uint32_t queue_family_indicies[2];
-	uint32_t success;
+	ENGINE_ERROR error;
+	VkResult success;
 
-	swap_chain->support = device->swap_chain_details;
+	(*swap_chain)->support = device->swap_chain_details;
 
-	success = swap_chain_get_surface_format(swap_chain, &surface_format);
-	if (!success)
+	error = swap_chain_get_surface_format(*swap_chain, &surface_format);
+	if (error != ENGINE_OK)
 	{
-		LOG_ERROR("Failed to find usable surface format");
-		return NULL;
+		free(*swap_chain);
+		ENGINE_LOG_RETURN_IF_ERROR(error, "Failed to find valid swap chain surface format");
 	}
 
-	present_mode = swap_chain_get_present_mode(swap_chain);
-	swap_chain_extent = swap_chain_get_extent(swap_chain, window);
+	present_mode = swap_chain_get_present_mode(*swap_chain);
+	swap_chain_extent = swap_chain_get_extent(*swap_chain, window);
 
-	image_count = swap_chain->support.capabilities.minImageCount + 1;
-	if (swap_chain->support.capabilities.maxImageCount > 0
-	    && image_count > swap_chain->support.capabilities.maxImageCount)
+	image_count = (*swap_chain)->support.capabilities.minImageCount + 1;
+	if ((*swap_chain)->support.capabilities.maxImageCount > 0
+	    && image_count > (*swap_chain)->support.capabilities.maxImageCount)
 	{
-		image_count = swap_chain->support.capabilities.maxImageCount;
+		image_count = (*swap_chain)->support.capabilities.maxImageCount;
 	}
 
 	VkSwapchainCreateInfoKHR swap_chain_info = {
@@ -213,7 +216,7 @@ SwapChain *swap_chain_create(const Window *restrict window,
 		swap_chain_info.pQueueFamilyIndices = NULL;
 	}
 
-	swap_chain_info.preTransform = swap_chain->support.capabilities.currentTransform;
+	swap_chain_info.preTransform = (*swap_chain)->support.capabilities.currentTransform;
 	swap_chain_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 
 	swap_chain_info.presentMode = present_mode;
@@ -224,39 +227,65 @@ SwapChain *swap_chain_create(const Window *restrict window,
 	success = vkCreateSwapchainKHR(device->logical_device,
 	                               &swap_chain_info,
 	                               NULL,
-	                               &swap_chain->handle);
+	                               &(*swap_chain)->handle);
 
 	if (success != VK_SUCCESS)
 	{
-		LOG_ERROR("vkCreateSwapchainKHR failed");
 		free(swap_chain);
-		return NULL;
+		if (success & VK_ERROR_OUT_OF_HOST_MEMORY
+			|| success == VK_ERROR_OUT_OF_DEVICE_MEMORY)
+		{
+			ENGINE_LOG_RETURN_IF_ERROR(ENGINE_ERROR_OUT_OF_MEMORY,
+			                           "Failed to create swap chain, insufficient"
+			                           "host/device memory");
+		}
+		else if (success == VK_ERROR_INITIALIZATION_FAILED)
+		{
+			ENGINE_LOG_RETURN_IF_ERROR(ENGINE_ERROR_INIT_FAILED,
+			                           "Failed to initalise instance");
+		}
+		else if (success == VK_ERROR_DEVICE_LOST)
+		{
+			ENGINE_LOG_RETURN_IF_ERROR(ENGINE_ERROR_DEVICE_LOST,
+			                           "Device was lost while creating swap chain");
+		}
+		else if (success == VK_ERROR_SURFACE_LOST_KHR)
+		{
+			ENGINE_LOG_RETURN_IF_ERROR(ENGINE_ERROR_SURFACE_LOST,
+			                           "Surface was lost while creating swap chain");
+		}
+		else if (success == VK_ERROR_NATIVE_WINDOW_IN_USE_KHR)
+		{
+			ENGINE_LOG_RETURN_IF_ERROR(ENGINE_ERROR_WINDOW_IN_USE,
+			                           "Window is already in use by Vulkan or another API");
+		}
 	}
 
 	vkGetSwapchainImagesKHR(device->logical_device,
-	                        swap_chain->handle,
-	                        &swap_chain->image_count,
+	                        (*swap_chain)->handle,
+	                        &(*swap_chain)->image_count,
 	                        NULL);
 
-	swap_chain->images = malloc(sizeof(VkImage) * image_count);
+	(*swap_chain)->images = malloc(sizeof(VkImage) * image_count);
 	vkGetSwapchainImagesKHR(device->logical_device,
-	                        swap_chain->handle,
-	                        &swap_chain->image_count,
-	                        swap_chain->images);
+	                        (*swap_chain)->handle,
+	                        &(*swap_chain)->image_count,
+	                        (*swap_chain)->images);
 
-	swap_chain->format = surface_format.format;
-	swap_chain->extent = swap_chain_extent;
+	(*swap_chain)->format = surface_format.format;
+	(*swap_chain)->extent = swap_chain_extent;
 
-	if (!swap_chain_image_views_create(swap_chain, device))
+	if (swap_chain_image_views_create(*swap_chain, device) != ENGINE_OK)
 	{
 		vkDestroySwapchainKHR(device->logical_device,
-		                      swap_chain->handle,
+		                      (*swap_chain)->handle,
 		                      NULL);
-		free(swap_chain->images);
-		free(swap_chain);
+		free((*swap_chain)->images);
+		free(*swap_chain);
+		return ENGINE_ERROR_INIT_FAILED;
 	}
 
-	return swap_chain;
+	return ENGINE_OK;
 }
 
 void swap_chain_destroy(SwapChain *swap_chain, const Device *device)
